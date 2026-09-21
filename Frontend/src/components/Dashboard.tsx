@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { type Project, type Task, getProjects, getTasks, getCurrentUser, type User } from '../api';
+import { getDueDateBadge } from './TaskDetailModal';
 
 const Dashboard: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -39,6 +40,10 @@ const Dashboard: React.FC = () => {
   const completedTasks = tasks.filter(t => t.status === 'Done').length;
   const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
   const todoTasks = tasks.filter(t => t.status === 'To Do').length;
+  const urgentTasks = tasks.filter(t => t.priority === 'Urgent' || t.priority === 'High');
+
+  // Tasks assigned to current user
+  const myTasks = tasks.filter(t => currentUser && t.assigned_user_id === currentUser.id);
 
   // Calculate overdue tasks
   const today = new Date();
@@ -51,20 +56,31 @@ const Dashboard: React.FC = () => {
 
   const overallPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // Format today's date
+  const todayDateString = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
   return (
-    <div>
-      {/* Welcome Banner */}
-      <div className="flex justify-between items-center" style={{ marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+    <div className="dashboard-wrapper">
+      {/* Top Header Bar */}
+      <div className="dashboard-header">
         <div>
-          <h1 className="page-title" style={{ margin: 0 }}>Dashboard</h1>
-          <p style={{ color: 'var(--text-soft)', fontSize: '0.95rem', marginTop: '0.25rem' }}>
-            Welcome back, <strong>{currentUser?.name || 'Developer'}</strong>! Here is an overview of your active workflow.
+          <div className="dashboard-date-chip">{todayDateString}</div>
+          <h1 className="dashboard-greeting">
+            Welcome back, {currentUser?.name ? currentUser.name.split(' ')[0] : 'there'}
+          </h1>
+          <p className="dashboard-subtitle">
+            Here's what is happening across your team and active projects today.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="dashboard-actions">
           <Link to="/tasks" className="btn btn-primary">
-            🗂️ Open Kanban Board
+            🗂️ Kanban Board
           </Link>
           <Link to="/projects" className="btn btn-secondary">
             + New Project
@@ -73,13 +89,13 @@ const Dashboard: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="loader"></div>
+        <div className="loader" style={{ margin: '3rem auto' }}></div>
       ) : (
         <>
-          {/* Summary Metric Stats Grid */}
-          <div className="dashboard-stats-grid" style={{ marginBottom: '2rem' }}>
+          {/* Key Metrics Row */}
+          <div className="dashboard-stats-grid">
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)' }}>📁</div>
+              <div className="stat-icon stat-icon-projects">📁</div>
               <div>
                 <div className="stat-value">{projects.length}</div>
                 <div className="stat-label">Active Projects</div>
@@ -87,81 +103,215 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>📝</div>
+              <div className="stat-icon stat-icon-tasks">📝</div>
               <div>
-                <div className="stat-value">{totalTasks}</div>
-                <div className="stat-label">Tasks ({todoTasks} To Do, {inProgressTasks} In Progress)</div>
+                <div className="stat-value">{inProgressTasks}</div>
+                <div className="stat-label">Tasks In Progress ({todoTasks} To Do)</div>
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'var(--success-soft)', color: 'var(--success)' }}>✅</div>
+              <div className="stat-icon stat-icon-completed">✅</div>
               <div>
                 <div className="stat-value">{completedTasks}</div>
-                <div className="stat-label">Completed ({overallPercent}%)</div>
+                <div className="stat-label">{overallPercent}% Completed Total</div>
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: overdueTasks.length > 0 ? 'var(--danger-soft)' : '#f1f5f9', color: overdueTasks.length > 0 ? 'var(--danger)' : '#475569' }}>
-                {overdueTasks.length > 0 ? '🔴' : '🕒'}
+              <div className={`stat-icon ${overdueTasks.length > 0 ? 'stat-icon-overdue' : 'stat-icon-neutral'}`}>
+                {overdueTasks.length > 0 ? '⚠️' : '🎯'}
               </div>
               <div>
                 <div className="stat-value" style={{ color: overdueTasks.length > 0 ? 'var(--danger)' : 'var(--text)' }}>
                   {overdueTasks.length}
                 </div>
-                <div className="stat-label">Overdue Tasks</div>
+                <div className="stat-label">{overdueTasks.length > 0 ? 'Overdue Tasks' : 'All on Track'}</div>
               </div>
             </div>
           </div>
 
-          {/* Project Progress Section */}
-          <div className="card" style={{ marginBottom: '2rem' }}>
-            <div className="flex justify-between items-center" style={{ marginBottom: '1.25rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>📊 Project Completion Progress</h3>
-              <Link to="/projects" style={{ fontSize: '0.88rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
-                View All Projects &rarr;
-              </Link>
+          {/* Two-Column Layout */}
+          <div className="dashboard-layout-grid">
+            {/* Left Column (Main Content) */}
+            <div className="dashboard-main-col">
+              {/* Project Health & Progress Cards */}
+              <div className="dashboard-section-card">
+                <div className="dashboard-section-header">
+                  <div>
+                    <h3 className="dashboard-section-title">Projects & Milestones</h3>
+                    <p className="dashboard-section-desc">Track progress and health across your workspaces</p>
+                  </div>
+                  <Link to="/projects" className="dashboard-link">
+                    Manage all ({projects.length}) &rarr;
+                  </Link>
+                </div>
+
+                {projects.length === 0 ? (
+                  <div className="dashboard-empty-state">
+                    <p>No projects created yet.</p>
+                    <Link to="/projects" className="btn btn-sm btn-primary" style={{ marginTop: '0.5rem' }}>
+                      Create your first project
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="dashboard-project-list">
+                    {projects.map(project => {
+                      const pTasks = tasks.filter(t => t.project_id === project.id);
+                      const pTotal = pTasks.length;
+                      const pDone = pTasks.filter(t => t.status === 'Done').length;
+                      const pPercent = pTotal > 0 ? Math.round((pDone / pTotal) * 100) : 0;
+                      const isOwner = currentUser?.id === project.owner_id;
+
+                      return (
+                        <div key={project.id} className="dashboard-project-item">
+                          <div className="dashboard-project-meta">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                              <span className="dashboard-project-name">{project.title}</span>
+                              <span className="dashboard-role-badge">
+                                {isOwner ? '👑 Owner' : '👥 Member'}
+                              </span>
+                            </div>
+                            <span className="dashboard-progress-number">
+                              {pPercent}% ({pDone}/{pTotal} done)
+                            </span>
+                          </div>
+
+                          <div className="progress-bar-track" style={{ height: '7px', margin: '0.5rem 0 0.6rem' }}>
+                            <div
+                              className="progress-bar-fill"
+                              style={{
+                                width: `${pPercent}%`,
+                                backgroundColor: pPercent === 100 ? 'var(--success)' : 'var(--primary)'
+                              }}
+                            />
+                          </div>
+
+                          <div className="dashboard-project-footer">
+                            <span className="dashboard-team-count">
+                              👥 {project.members?.length || 1} team member{(project.members?.length || 1) === 1 ? '' : 's'}
+                            </span>
+                            <Link 
+                              to="/tasks" 
+                              className="dashboard-view-tasks-btn"
+                            >
+                              Open Board &rarr;
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* My Assigned Tasks Section */}
+              <div className="dashboard-section-card">
+                <div className="dashboard-section-header">
+                  <div>
+                    <h3 className="dashboard-section-title">Assigned to Me</h3>
+                    <p className="dashboard-section-desc">Quick overview of tasks you need to complete</p>
+                  </div>
+                  <Link to="/tasks" className="dashboard-link">
+                    View in Tasks &rarr;
+                  </Link>
+                </div>
+
+                {myTasks.length === 0 ? (
+                  <div className="dashboard-empty-state">
+                    <p>🎉 You have no pending tasks assigned to you.</p>
+                  </div>
+                ) : (
+                  <div className="dashboard-my-tasks-list">
+                    {myTasks.slice(0, 5).map(task => {
+                      const dueBadge = getDueDateBadge(task.due_date);
+                      const priority = task.priority || 'Medium';
+
+                      return (
+                        <div key={task.id} className="dashboard-my-task-item">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+                            <span className={`priority-badge priority-${priority.toLowerCase()}`}>
+                              {priority}
+                            </span>
+                            <span className="dashboard-task-title" title={task.title}>
+                              {task.title}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+                            {dueBadge && (
+                              <span className={`due-badge ${dueBadge.className}`} style={{ fontSize: '0.72rem' }}>
+                                {dueBadge.text}
+                              </span>
+                            )}
+                            <span className={`status-pill status-${task.status.toLowerCase().replace(' ', '-')}`} style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
+                              {task.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {projects.length === 0 ? (
-              <p style={{ color: 'var(--text-soft)' }}>No projects found. Create a project to start tracking progress!</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {projects.map(project => {
-                  const pTasks = tasks.filter(t => t.project_id === project.id);
-                  const pTotal = pTasks.length;
-                  const pDone = pTasks.filter(t => t.status === 'Done').length;
-                  const pPercent = pTotal > 0 ? Math.round((pDone / pTotal) * 100) : 0;
+            {/* Right Column (Side Panel Insights) */}
+            <div className="dashboard-side-col">
+              {/* Task Breakdown by Status */}
+              <div className="dashboard-section-card">
+                <h3 className="dashboard-section-title" style={{ marginBottom: '1rem' }}>Task Distribution</h3>
+                <div className="distribution-list">
+                  <div className="distribution-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="status-indicator status-ind-todo" />
+                      <span>To Do</span>
+                    </div>
+                    <strong>{todoTasks}</strong>
+                  </div>
 
-                  return (
-                    <div key={project.id} style={{ backgroundColor: 'var(--surface-alt)', padding: '14px 18px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                      <div className="flex justify-between items-center" style={{ marginBottom: '0.5rem' }}>
-                        <div>
-                          <strong style={{ fontSize: '1rem', color: 'var(--text)' }}>{project.title}</strong>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginLeft: '0.75rem' }}>
-                            {project.members?.length || 1} team member{(project.members?.length || 1) === 1 ? '' : 's'}
-                          </span>
-                        </div>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: pPercent === 100 ? 'var(--success)' : 'var(--primary)' }}>
-                          {pPercent}% ({pDone}/{pTotal} done)
+                  <div className="distribution-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="status-indicator status-ind-inprogress" />
+                      <span>In Progress</span>
+                    </div>
+                    <strong>{inProgressTasks}</strong>
+                  </div>
+
+                  <div className="distribution-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="status-indicator status-ind-done" />
+                      <span>Done</span>
+                    </div>
+                    <strong>{completedTasks}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* High Priority Alerts */}
+              {urgentTasks.length > 0 && (
+                <div className="dashboard-section-card" style={{ borderLeft: '4px solid var(--warning)' }}>
+                  <h3 className="dashboard-section-title" style={{ color: 'var(--warning)', marginBottom: '0.5rem' }}>
+                    ⚡ High Priority Focus ({urgentTasks.length})
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-soft)', marginBottom: '0.75rem' }}>
+                    Critical tasks needing your attention
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {urgentTasks.slice(0, 3).map(ut => (
+                      <div key={ut.id} style={{ fontSize: '0.85rem', padding: '6px 8px', background: 'var(--surface-alt)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+                          {ut.title}
+                        </span>
+                        <span className={`priority-badge priority-${(ut.priority || 'High').toLowerCase()}`}>
+                          {ut.priority}
                         </span>
                       </div>
-
-                      <div className="progress-bar-track">
-                        <div 
-                          className="progress-bar-fill"
-                          style={{
-                            width: `${pPercent}%`,
-                            backgroundColor: pPercent === 100 ? 'var(--success)' : 'var(--primary)'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

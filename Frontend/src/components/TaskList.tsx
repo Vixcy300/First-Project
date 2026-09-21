@@ -10,12 +10,20 @@ const TaskList: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>(() => {
+    const saved = localStorage.getItem('task_view_mode');
+    return saved === 'list' ? 'list' : 'kanban';
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<Task | null>(null);
+
+  const handleViewModeChange = (mode: 'kanban' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('task_view_mode', mode);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -161,14 +169,14 @@ const TaskList: React.FC = () => {
           <div className="view-toggle-group">
             <button
               className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
-              onClick={() => setViewMode('kanban')}
+              onClick={() => handleViewModeChange('kanban')}
               title="Kanban Board View"
             >
               🗂️ Board
             </button>
             <button
               className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
+              onClick={() => handleViewModeChange('list')}
               title="List View"
             >
               📋 List
