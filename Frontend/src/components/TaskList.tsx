@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { type Task, getTasks, createTask, updateTask, deleteTask } from '../api';
+import { type Task, type Project, getTasks, getProjects, createTask, updateTask, deleteTask } from '../api';
 import TaskForm from './TaskForm';
 import TaskDetailModal, { getDueDateBadge } from './TaskDetailModal';
+import KanbanBoard from './KanbanBoard';
 import { useToast } from '../context/ToastContext';
 
 const TaskList: React.FC = () => {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -15,12 +19,18 @@ const TaskList: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    const fetchTasksData = async () => {
+    const fetchInitialData = async () => {
       try {
         setLoading(true);
         setError('');
-        const data = await getTasks();
-        if (isMounted) setTasks(data);
+        const [taskList, projectList] = await Promise.all([
+          getTasks(selectedProjectId === '' ? undefined : Number(selectedProjectId)),
+          getProjects()
+        ]);
+        if (isMounted) {
+          setTasks(taskList);
+          setProjects(projectList);
+        }
       } catch (err: any) {
         if (isMounted) {
           const msg = err?.response?.data?.detail || 'Failed to fetch tasks.';
@@ -32,17 +42,16 @@ const TaskList: React.FC = () => {
       }
     };
 
-    fetchTasksData();
+    fetchInitialData();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [selectedProjectId]);
 
   const refreshTasks = async () => {
     try {
-      const data = await getTasks();
+      const data = await getTasks(selectedProjectId === '' ? undefined : Number(selectedProjectId));
       setTasks(data);
-      // If modal is open for a task, update its reference
       if (selectedTaskForModal) {
         const updated = data.find(t => t.id === selectedTaskForModal.id);
         if (updated) setSelectedTaskForModal(updated);
@@ -86,10 +95,10 @@ const TaskList: React.FC = () => {
     }
   };
 
-  const handleQuickStatusChange = async (taskId: number, newStatus: string) => {
+  const handleStatusChange = async (taskId: number, newStatus: string) => {
     try {
       await updateTask(taskId, { status: newStatus });
-      toast.success(`Task moved to ${newStatus}`);
+      toast.success(`Moved to ${newStatus}`);
       await refreshTasks();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Failed to update status");
@@ -125,17 +134,58 @@ const TaskList: React.FC = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center" style={{ marginBottom: '2rem' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Tasks</h1>
-        {!showForm && (
-          <button className="btn btn-primary" onClick={() => { setShowForm(true); setError(''); }}>
-            + New Task
-          </button>
-        )}
+      {/* Top Header & Controls */}
+      <div className="flex justify-between items-center" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 className="page-title" style={{ margin: 0 }}>Tasks</h1>
+          <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+            Manage, organize, and drag tasks across your workflow.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Project Filter */}
+          <select
+            className="form-control"
+            style={{ width: 'auto', minWidth: '170px', padding: '0.5rem 0.8rem', fontSize: '0.88rem' }}
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value === '' ? '' : Number(e.target.value))}
+          >
+            <option value="">📁 All Projects</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </select>
+
+          {/* View Toggle */}
+          <div className="view-toggle-group">
+            <button
+              className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+              onClick={() => setViewMode('kanban')}
+              title="Kanban Board View"
+            >
+              🗂️ Board
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List View"
+            >
+              📋 List
+            </button>
+          </div>
+
+          {!showForm && (
+            <button className="btn btn-primary" onClick={() => { setShowForm(true); setError(''); }}>
+              + New Task
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <div className="error-message" style={{ marginBottom: '1.5rem' }}>{error}</div>}
 
+      {/* Task Creation / Edit Form Modal or Inline */}
       {showForm && (
         <div style={{ marginBottom: '2rem' }}>
           <TaskForm 
@@ -147,6 +197,14 @@ const TaskList: React.FC = () => {
 
       {loading ? (
         <div className="loader"></div>
+      ) : viewMode === 'kanban' ? (
+        <KanbanBoard
+          tasks={tasks}
+          onStatusChange={handleStatusChange}
+          onEditTask={(t) => { setEditingTaskId(t.id); setShowForm(false); }}
+          onDeleteTask={handleDelete}
+          onOpenDetails={(t) => setSelectedTaskForModal(t)}
+        />
       ) : (
         <div className="grid grid-cols-2">
           {tasks.map(task => {
@@ -202,7 +260,7 @@ const TaskList: React.FC = () => {
                         className="form-control" 
                         style={{ padding: '0.2rem 0.5rem', width: 'auto', fontSize: '0.82rem', height: 'auto' }}
                         value={task.status}
-                        onChange={(e) => handleQuickStatusChange(task.id, e.target.value)}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
                       >
                         <option value="To Do">To Do</option>
                         <option value="In Progress">In Progress</option>

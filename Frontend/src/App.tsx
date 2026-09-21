@@ -1,26 +1,12 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import Dashboard from './components/Dashboard';
 import ProjectList from './components/ProjectList';
 import TaskList from './components/TaskList';
 import AuthPage from './components/AuthPage';
 import { ToastProvider } from './context/ToastContext';
 import './index.css';
-
-const Dashboard = () => (
-  <div>
-    <h1 className="page-title">Dashboard</h1>
-    <div className="card">
-      <h3>Welcome to the Task & Project Management Portal</h3>
-      <p style={{ marginTop: '0.5rem', color: 'var(--text-soft)' }}>
-        Use the sidebar to navigate to Projects and Tasks.
-      </p>
-      <p style={{ marginTop: '0.25rem', color: 'var(--text-soft)' }}>
-        This application demonstrates a full-stack integration with FastAPI, SQLAlchemy, React, and TypeScript.
-      </p>
-    </div>
-  </div>
-);
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const token = localStorage.getItem('access_token');

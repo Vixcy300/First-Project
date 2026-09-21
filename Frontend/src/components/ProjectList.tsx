@@ -184,6 +184,31 @@ const ProjectList: React.FC = () => {
                   <strong>Owner:</strong> {project.owner ? project.owner.name : (isOwner ? 'You' : `User #${project.owner_id}`)}
                 </div>
 
+                {/* Progress Bar */}
+                {(() => {
+                  const totalTasks = project.tasks?.length || 0;
+                  const completedTasks = project.tasks?.filter(t => t.status === 'Done').length || 0;
+                  const percent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                  return (
+                    <div style={{ margin: '0.25rem 0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: '0.35rem' }}>
+                        <span>Completion Progress</span>
+                        <span>{percent}% ({completedTasks}/{totalTasks} tasks)</span>
+                      </div>
+                      <div className="progress-bar-track">
+                        <div 
+                          className="progress-bar-fill" 
+                          style={{ 
+                            width: `${percent}%`,
+                            backgroundColor: percent === 100 ? 'var(--success)' : 'var(--primary)'
+                          }} 
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Team Members List */}
                 <div style={{ backgroundColor: 'var(--surface-hover)', padding: '0.75rem', borderRadius: '6px', fontSize: '0.85rem' }}>
                   <div className="flex justify-between items-center" style={{ marginBottom: '0.5rem' }}>

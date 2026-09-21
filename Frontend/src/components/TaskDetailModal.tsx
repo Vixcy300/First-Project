@@ -240,3 +240,4 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose }) => {
 };
 
 export default TaskDetailModal;
+
