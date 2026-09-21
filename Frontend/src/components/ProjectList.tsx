@@ -9,13 +9,14 @@ import {
   addProjectMember,
   removeProjectMember
 } from '../api';
+import { useToast } from '../context/ToastContext';
 
 const ProjectList: React.FC = () => {
+  const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   
   // State for the "Create Project" form
   const [newTitle, setNewTitle] = useState('');
@@ -42,7 +43,9 @@ const ProjectList: React.FC = () => {
         }
       } catch (err: any) {
         if (isMounted) {
-          setError(err?.response?.data?.detail || 'Failed to fetch projects. Is the backend running?');
+          const msg = err?.response?.data?.detail || 'Failed to fetch projects. Is the backend running?';
+          setError(msg);
+          toast.error(msg);
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -61,15 +64,15 @@ const ProjectList: React.FC = () => {
 
     try {
       setError('');
-      setSuccessMsg('');
       const created = await createProject({ title: newTitle, description: newDescription });
       setProjects([created, ...projects]);
       setNewTitle('');
       setNewDescription('');
-      setSuccessMsg('Project created successfully!');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      toast.success('Project created successfully!');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to create project.');
+      const msg = err?.response?.data?.detail || 'Failed to create project.';
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -80,13 +83,13 @@ const ProjectList: React.FC = () => {
 
     try {
       setError('');
-      setSuccessMsg('');
       await deleteProject(projectId);
       setProjects(projects.filter(p => p.id !== projectId));
-      setSuccessMsg('Project deleted successfully.');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      toast.success('Project deleted successfully.');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to delete project. Only the project owner can delete it.');
+      const msg = err?.response?.data?.detail || 'Failed to delete project. Only the project owner can delete it.';
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -95,16 +98,16 @@ const ProjectList: React.FC = () => {
     try {
       setMemberLoading(true);
       setError('');
-      setSuccessMsg('');
       await addProjectMember(projectId, { email: memberEmail.trim() });
       setMemberEmail('');
       setActiveProjectForMember(null);
-      setSuccessMsg(`Added ${memberEmail} to the project!`);
-      setTimeout(() => setSuccessMsg(''), 3000);
+      toast.success(`Added ${memberEmail} to the project!`);
       const updated = await getProjects();
       setProjects(updated);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to add member. Check that the user email exists.');
+      const msg = err?.response?.data?.detail || 'Failed to add member. Check that the user email exists.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setMemberLoading(false);
     }
@@ -114,10 +117,13 @@ const ProjectList: React.FC = () => {
     try {
       setError('');
       await removeProjectMember(projectId, userId);
+      toast.success("Member removed from project.");
       const updated = await getProjects();
       setProjects(updated);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to remove member.');
+      const msg = err?.response?.data?.detail || 'Failed to remove member.';
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -126,11 +132,6 @@ const ProjectList: React.FC = () => {
       <h1 className="page-title">Projects</h1>
       
       {error && <div className="error-message" style={{ marginBottom: '1.5rem' }}>{error}</div>}
-      {successMsg && (
-        <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.5rem', fontWeight: 500 }}>
-          {successMsg}
-        </div>
-      )}
       
       {/* Create Project Form */}
       <div className="card" style={{ marginBottom: '2rem' }}>

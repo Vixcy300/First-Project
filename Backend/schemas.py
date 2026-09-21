@@ -1,28 +1,18 @@
-# This file defines Pydantic schemas. 
-# While SQLAlchemy models (in models.py) define how data is stored in the database,
-# Pydantic schemas define the shape of data as it enters and leaves our API.
-# This ensures data validation and serialization/deserialization.
-
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 
 # --- User Schemas ---
 
-# Base schema contains attributes common to creating and reading a user.
 class UserBase(BaseModel):
     name: str
     email: str
 
-# Schema used when creating a user (inherits everything from UserBase).
 class UserCreate(UserBase):
     password: str
 
-# Schema used when returning user data from the API.
 class User(UserBase):
     id: int
-
-    # ConfigDict(from_attributes=True) tells Pydantic to read data even if it is not a dict,
-    # but an ORM model (like our SQLAlchemy User model).
     model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
@@ -54,23 +44,54 @@ class ProjectMemberAdd(BaseModel):
     role: Optional[str] = "member"
 
 
+# --- Task Activity & Comment Schemas ---
+
+class TaskActivity(BaseModel):
+    id: int
+    task_id: int
+    user_id: int
+    action: str
+    created_at: datetime
+    user: Optional[User] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaskCommentBase(BaseModel):
+    content: str
+
+class TaskCommentCreate(TaskCommentBase):
+    pass
+
+class TaskComment(TaskCommentBase):
+    id: int
+    task_id: int
+    user_id: int
+    created_at: datetime
+    user: Optional[User] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Task Schemas ---
 
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
     status: Optional[str] = "To Do"
+    priority: Optional[str] = "Medium"  # Low, Medium, High, Urgent
+    due_date: Optional[str] = None     # YYYY-MM-DD
     assigned_user_id: Optional[int] = None
 
 class TaskCreate(TaskBase):
-    project_id: int # We must specify which project a task belongs to when creating it.
     project_id: int
 
-# Schema for updating a task (all fields are optional because we might only update one field)
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
+    priority: Optional[str] = None
+    due_date: Optional[str] = None
     assigned_user_id: Optional[int] = None
 
 class Task(TaskBase):
@@ -90,11 +111,8 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     pass
 
-# When we fetch a project, we also want to fetch all the tasks associated with it.
-# When we fetch a project, we also include owner, members, and tasks.
 class Project(ProjectBase):
     id: int
-    tasks: List[Task] = [] # A list of Task schemas
     owner_id: Optional[int] = None
     owner: Optional[User] = None
     members: List[ProjectMember] = []

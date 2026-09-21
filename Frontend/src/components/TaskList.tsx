@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { type Task, getTasks, createTask, updateTask, deleteTask } from '../api';
 import TaskForm from './TaskForm';
+import TaskDetailModal, { getDueDateBadge } from './TaskDetailModal';
+import { useToast } from '../context/ToastContext';
 
 const TaskList: React.FC = () => {
+  const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState<Task | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -18,7 +22,11 @@ const TaskList: React.FC = () => {
         const data = await getTasks();
         if (isMounted) setTasks(data);
       } catch (err: any) {
-        if (isMounted) setError(err?.response?.data?.detail || 'Failed to fetch tasks.');
+        if (isMounted) {
+          const msg = err?.response?.data?.detail || 'Failed to fetch tasks.';
+          setError(msg);
+          toast.error(msg);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -34,8 +42,15 @@ const TaskList: React.FC = () => {
     try {
       const data = await getTasks();
       setTasks(data);
+      // If modal is open for a task, update its reference
+      if (selectedTaskForModal) {
+        const updated = data.find(t => t.id === selectedTaskForModal.id);
+        if (updated) setSelectedTaskForModal(updated);
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to refresh tasks.');
+      const msg = err?.response?.data?.detail || 'Failed to refresh tasks.';
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -44,9 +59,12 @@ const TaskList: React.FC = () => {
       setError('');
       await createTask(data);
       setShowForm(false);
+      toast.success("Task created successfully!");
       await refreshTasks();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to create task.');
+      const msg = err?.response?.data?.detail || 'Failed to create task.';
+      setError(msg);
+      toast.error(msg);
       throw err;
     }
   };
@@ -57,11 +75,24 @@ const TaskList: React.FC = () => {
         setError('');
         await updateTask(editingTaskId, data);
         setEditingTaskId(null);
+        toast.success("Task updated successfully!");
         await refreshTasks();
       } catch (err: any) {
-        setError(err?.response?.data?.detail || 'Failed to update task.');
+        const msg = err?.response?.data?.detail || 'Failed to update task.';
+        setError(msg);
+        toast.error(msg);
         throw err;
       }
+    }
+  };
+
+  const handleQuickStatusChange = async (taskId: number, newStatus: string) => {
+    try {
+      await updateTask(taskId, { status: newStatus });
+      toast.success(`Task moved to ${newStatus}`);
+      await refreshTasks();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || "Failed to update status");
     }
   };
 
@@ -70,14 +101,20 @@ const TaskList: React.FC = () => {
       try {
         setError('');
         await deleteTask(taskId);
-        setTasks(tasks.filter(t => t.id !== taskId));
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+        toast.success("Task deleted successfully!");
+        if (selectedTaskForModal?.id === taskId) {
+          setSelectedTaskForModal(null);
+        }
       } catch (err: any) {
-        setError(err?.response?.data?.detail || 'Failed to delete task.');
+        const msg = err?.response?.data?.detail || 'Failed to delete task.';
+        setError(msg);
+        toast.error(msg);
       }
     }
   };
 
-  const getBadgeClass = (status: string) => {
+  const getStatusClass = (status: string) => {
     switch (status) {
       case 'To Do': return 'badge-todo';
       case 'In Progress': return 'badge-inprogress';
@@ -112,53 +149,108 @@ const TaskList: React.FC = () => {
         <div className="loader"></div>
       ) : (
         <div className="grid grid-cols-2">
-          {tasks.map(task => (
-            <div key={task.id} className="card task-card">
-              {editingTaskId === task.id ? (
-                <TaskForm 
-                  initialData={task} 
-                  onSubmit={handleUpdate} 
-                  onCancel={() => setEditingTaskId(null)} 
-                />
-              ) : (
-                <>
-                  <div className="task-form-header">
-                    <h3>{task.title}</h3>
-                    <span className={`badge ${getBadgeClass(task.status)}`}>{task.status}</span>
-                  </div>
-                  <p>{task.description || 'No description provided.'}</p>
-                  
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.75rem 0' }}>
-                    <span><strong>Project ID:</strong> #{task.project_id}</span>
-                    <span>
-                      <strong>Assignee:</strong>{' '}
-                      {task.assignee ? task.assignee.name : (task.assigned_user_id ? `User #${task.assigned_user_id}` : 'Unassigned')}
-                    </span>
-                  </div>
-                  
-                  <div className="task-card-actions">
-                    <button 
-                      className="btn btn-sm" 
-                      style={{ backgroundColor: 'var(--surface-hover)', color: 'var(--text)' }}
-                      onClick={() => { setEditingTaskId(task.id); setError(''); }}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleDelete(task.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+          {tasks.map(task => {
+            const dueBadge = getDueDateBadge(task.due_date);
+            const priority = task.priority || 'Medium';
+
+            return (
+              <div key={task.id} className="card task-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                {editingTaskId === task.id ? (
+                  <TaskForm 
+                    initialData={task} 
+                    onSubmit={handleUpdate} 
+                    onCancel={() => setEditingTaskId(null)} 
+                  />
+                ) : (
+                  <>
+                    <div className="task-form-header">
+                      <h3 style={{ margin: 0, fontSize: '1.15rem' }}>{task.title}</h3>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span className={`priority-badge priority-${priority.toLowerCase()}`}>
+                          {priority}
+                        </span>
+                        <span className={`badge ${getStatusClass(task.status)}`}>
+                          {task.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {dueBadge && (
+                      <div style={{ marginTop: '0.4rem' }}>
+                        <span className={`due-badge ${dueBadge.className}`}>
+                          {dueBadge.text}
+                        </span>
+                      </div>
+                    )}
+
+                    <p style={{ margin: '0.75rem 0', color: 'var(--text-soft)', flex: '1 1 auto', fontSize: '0.92rem' }}>
+                      {task.description || <em>No description provided.</em>}
+                    </p>
+                    
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.85rem', color: 'var(--text-soft)', marginBottom: '0.75rem' }}>
+                      <span><strong>Project:</strong> #{task.project_id}</span>
+                      <span>
+                        <strong>Assignee:</strong>{' '}
+                        {task.assignee ? task.assignee.name : (task.assigned_user_id ? `User #${task.assigned_user_id}` : 'Unassigned')}
+                      </span>
+                    </div>
+
+                    {/* Quick status mover */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.82rem' }}>
+                      <span style={{ color: 'var(--text-soft)', fontWeight: 600 }}>Status:</span>
+                      <select 
+                        className="form-control" 
+                        style={{ padding: '0.2rem 0.5rem', width: 'auto', fontSize: '0.82rem', height: 'auto' }}
+                        value={task.status}
+                        onChange={(e) => handleQuickStatusChange(task.id, e.target.value)}
+                      >
+                        <option value="To Do">To Do</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Done">Done</option>
+                      </select>
+                    </div>
+                    
+                    <div className="task-card-actions" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                      <button 
+                        className="btn btn-sm"
+                        style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', fontWeight: 600 }}
+                        onClick={() => setSelectedTaskForModal(task)}
+                      >
+                        💬 Discussion & History
+                      </button>
+                      
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          className="btn btn-sm btn-secondary" 
+                          onClick={() => { setEditingTaskId(task.id); setError(''); }}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(task.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
           {tasks.length === 0 && !showForm && (
-            <p style={{ color: 'var(--text-secondary)' }}>No tasks found. Create one above!</p>
+            <p style={{ color: 'var(--text-soft)' }}>No tasks found. Create one above!</p>
           )}
         </div>
+      )}
+
+      {/* Task Discussion & Activity History Modal */}
+      {selectedTaskForModal && (
+        <TaskDetailModal 
+          task={selectedTaskForModal}
+          onClose={() => setSelectedTaskForModal(null)}
+        />
       )}
     </div>
   );

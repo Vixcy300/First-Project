@@ -24,11 +24,31 @@ export interface ProjectMember {
   user?: User;
 }
 
+export interface TaskActivity {
+  id: number;
+  task_id: number;
+  user_id: number;
+  action: string;
+  created_at: string;
+  user?: User;
+}
+
+export interface TaskComment {
+  id: number;
+  task_id: number;
+  user_id: number;
+  content: string;
+  created_at: string;
+  user?: User;
+}
+
 export interface Task {
   id: number;
   title: string;
   description?: string;
   status: string;
+  priority?: string; // Low, Medium, High, Urgent
+  due_date?: string; // YYYY-MM-DD
   project_id: number;
   assigned_user_id?: number;
   assignee?: User;
@@ -48,6 +68,8 @@ export interface TaskCreate {
   title: string;
   description?: string;
   status?: string;
+  priority?: string;
+  due_date?: string;
   project_id: number;
   assigned_user_id?: number;
 }
@@ -56,6 +78,8 @@ export interface TaskUpdate {
   title?: string;
   description?: string;
   status?: string;
+  priority?: string;
+  due_date?: string;
   assigned_user_id?: number;
 }
 
@@ -159,7 +183,7 @@ export const deleteProject = async (projectId: number) => {
   return response.data;
 };
 
-// --- Project Membership API (Week 3) ---
+// --- Project Membership API ---
 
 export const getProjectMembers = async (projectId: number): Promise<ProjectMember[]> => {
   const response = await api.get<ProjectMember[]>(`/projects/${projectId}/members`);
@@ -198,6 +222,23 @@ export const updateTask = async (taskId: number, task: TaskUpdate) => {
 
 export const deleteTask = async (taskId: number) => {
   const response = await api.delete(`/tasks/${taskId}`);
+  return response.data;
+};
+
+// --- Task Activities (Audit Log) & Comments API ---
+
+export const getTaskActivities = async (taskId: number): Promise<TaskActivity[]> => {
+  const response = await api.get<TaskActivity[]>(`/tasks/${taskId}/activities`);
+  return response.data;
+};
+
+export const getTaskComments = async (taskId: number): Promise<TaskComment[]> => {
+  const response = await api.get<TaskComment[]>(`/tasks/${taskId}/comments`);
+  return response.data;
+};
+
+export const createTaskComment = async (taskId: number, content: string): Promise<TaskComment> => {
+  const response = await api.post<TaskComment>(`/tasks/${taskId}/comments`, { content });
   return response.data;
 };
 

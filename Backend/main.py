@@ -137,7 +137,7 @@ def read_project(
     return project
 
 
-@app.delete("/projects/{project_id}", response_model=schemas.Project)
+@app.delete("/projects/{project_id}")
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
@@ -148,7 +148,8 @@ def delete_project(
         raise HTTPException(status_code=404, detail="Project not found")
     if not crud.is_project_owner(db, user_id=current_user.id, project_id=project_id):
         raise HTTPException(status_code=403, detail="Only the project owner can delete this project")
-    return crud.delete_project(db, project_id=project_id)
+    crud.delete_project(db, project_id=project_id)
+    return {"message": "Project deleted successfully", "id": project_id}
 
 
 # --- Project Members Routes ---
@@ -213,7 +214,7 @@ def create_task(
         if not crud.is_project_member(db, user_id=task.assigned_user_id, project_id=task.project_id):
             raise HTTPException(status_code=400, detail="Assignee must be a member of the project")
 
-    return crud.create_task(db=db, task=task)
+    return crud.create_task(db=db, task=task, user_id=current_user.id)
 
 
 @app.get("/tasks/", response_model=List[schemas.Task])
@@ -245,7 +246,7 @@ def update_task(
         if not crud.is_project_member(db, user_id=task_update.assigned_user_id, project_id=existing_task.project_id):
             raise HTTPException(status_code=400, detail="Assignee must be a member of the project")
 
-    return crud.update_task(db, task_id=task_id, task_update=task_update)
+    return crud.update_task(db, task_id=task_id, task_update=task_update, user_id=current_user.id)
 
 
 @app.delete("/tasks/{task_id}", response_model=schemas.Task)
@@ -262,3 +263,49 @@ def delete_task(
         raise HTTPException(status_code=403, detail="Must be a project member to delete tasks")
 
     return crud.delete_task(db, task_id=task_id)
+
+
+# --- Task Activities (Audit Log) & Comments Routes ---
+@app.get("/tasks/{task_id}/activities", response_model=List[schemas.TaskActivity])
+def read_task_activities(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    task = crud.get_task(db, task_id=task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to view task activities")
+    return crud.get_task_activities(db, task_id=task_id)
+
+
+@app.get("/tasks/{task_id}/comments", response_model=List[schemas.TaskComment])
+def read_task_comments(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    task = crud.get_task(db, task_id=task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to view task comments")
+    return crud.get_task_comments(db, task_id=task_id)
+
+
+@app.post("/tasks/{task_id}/comments", response_model=schemas.TaskComment)
+def create_task_comment(
+    task_id: int,
+    comment_in: schemas.TaskCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    task = crud.get_task(db, task_id=task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to comment on this task")
+    if not comment_in.content.strip():
+        raise HTTPException(status_code=400, detail="Comment content cannot be empty")
+    return crud.create_task_comment(db, task_id=task_id, user_id=current_user.id, content=comment_in.content.strip())

@@ -167,3 +167,75 @@ def test_task_assignment_validation(client):
     assert update_res.status_code == 400
     assert "member" in update_res.json()["detail"].lower()
 
+
+def test_task_priority_due_date_activity_and_comments(client):
+    """
+    Test Priority, Due Date, Activity Log, and Task Comments:
+    1. Create task with Urgent priority and due_date.
+    2. Check activity log automatically recorded creation.
+    3. Update task status and verify activity log recorded change.
+    4. Post and read comments on task.
+    """
+    token, user = get_auth_token(client, "Dana", "dana@example.com")
+
+    # Create project
+    proj_res = client.post(
+        "/projects/",
+        json={"title": "Dana's Project", "description": "Activity test"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    proj_id = proj_res.json()["id"]
+
+    # Create task with priority & due_date
+    task_res = client.post(
+        "/tasks/",
+        json={
+            "title": "Urgent Security Audit",
+            "project_id": proj_id,
+            "priority": "Urgent",
+            "due_date": "2026-10-01"
+        },
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert task_res.status_code == 200
+    task_data = task_res.json()
+    assert task_data["priority"] == "Urgent"
+    assert task_data["due_date"] == "2026-10-01"
+    task_id = task_data["id"]
+
+    # Check activity log -> should contain creation
+    act_res = client.get(f"/tasks/{task_id}/activities", headers={"Authorization": f"Bearer {token}"})
+    assert act_res.status_code == 200
+    activities = act_res.json()
+    assert len(activities) >= 1
+    assert "created" in activities[0]["action"].lower()
+
+    # Update task status -> should record activity
+    patch_res = client.patch(
+        f"/tasks/{task_id}",
+        json={"status": "In Progress"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert patch_res.status_code == 200
+
+    act_res2 = client.get(f"/tasks/{task_id}/activities", headers={"Authorization": f"Bearer {token}"})
+    act_actions = [a["action"] for a in act_res2.json()]
+    assert any("in progress" in a.lower() for a in act_actions)
+
+    # Add comment
+    comment_res = client.post(
+        f"/tasks/{task_id}/comments",
+        json={"content": "Started investigating logs."},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert comment_res.status_code == 200
+    assert comment_res.json()["content"] == "Started investigating logs."
+
+    # Read comments
+    get_comments_res = client.get(f"/tasks/{task_id}/comments", headers={"Authorization": f"Bearer {token}"})
+    assert get_comments_res.status_code == 200
+    comments = get_comments_res.json()
+    assert len(comments) == 1
+    assert comments[0]["content"] == "Started investigating logs."
+
+
