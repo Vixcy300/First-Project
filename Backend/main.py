@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import jwt
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import InvalidTokenError
@@ -309,3 +309,27 @@ def create_task_comment(
     if not comment_in.content.strip():
         raise HTTPException(status_code=400, detail="Comment content cannot be empty")
     return crud.create_task_comment(db, task_id=task_id, user_id=current_user.id, content=comment_in.content.strip())
+
+
+# --- CSV Import & Bulk Update Endpoint ---
+
+@app.post("/csv/upload", response_model=schemas.CSVImportResult)
+async def upload_csv_data(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files (.csv) are supported")
+    
+    try:
+        content_bytes = await file.read()
+        try:
+            content = content_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            content = content_bytes.decode("latin-1")
+            
+        result = crud.import_csv_data(db, current_user=current_user, csv_content=content)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process CSV file: {str(e)}")

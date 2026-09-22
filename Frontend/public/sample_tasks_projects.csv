@@ -1,0 +1,8 @@
+project_title,task_title,task_description,status,priority,due_date,assignee_email
+Website Redesign,Design Homepage Mockups,Create clean Figma designs with modern responsive layout,In Progress,High,2026-10-15,
+Website Redesign,Setup Backend Database,Configure SQLite and SQLAlchemy models with migrations,Done,Urgent,2026-09-30,
+Website Redesign,Implement User Authentication,Build JWT authentication flow for login and registration,To Do,High,2026-10-20,
+Mobile App Development,Setup React Native Project,Initialize mobile project repository and navigation,Done,Medium,2026-09-25,
+Mobile App Development,Integrate Push Notifications,Add notifications for upcoming due dates and task updates,To Do,Urgent,2026-11-05,
+Mobile App Development,App Store Deployment,Prepare app icons screenshots and submit for review,To Do,Low,2026-11-30,
+

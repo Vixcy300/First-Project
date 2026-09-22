@@ -119,3 +119,12 @@ class Project(ProjectBase):
     tasks: List[Task] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- CSV Import Schemas ---
+
+class CSVImportResult(BaseModel):
+    projects_created: int
+    tasks_created: int
+    tasks_updated: int
+    errors: List[str] = []

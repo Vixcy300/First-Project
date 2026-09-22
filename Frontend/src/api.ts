@@ -24,34 +24,16 @@ export interface ProjectMember {
   user?: User;
 }
 
-export interface TaskActivity {
-  id: number;
-  task_id: number;
-  user_id: number;
-  action: string;
-  created_at: string;
-  user?: User;
-}
-
-export interface TaskComment {
-  id: number;
-  task_id: number;
-  user_id: number;
-  content: string;
-  created_at: string;
-  user?: User;
-}
-
 export interface Task {
   id: number;
   title: string;
   description?: string;
   status: string;
-  priority?: string; // Low, Medium, High, Urgent
-  due_date?: string; // YYYY-MM-DD
   project_id: number;
   assigned_user_id?: number;
   assignee?: User;
+  priority?: string;
+  due_date?: string;
 }
 
 export interface Project {
@@ -68,19 +50,49 @@ export interface TaskCreate {
   title: string;
   description?: string;
   status?: string;
-  priority?: string;
-  due_date?: string;
   project_id: number;
   assigned_user_id?: number;
+  priority?: string;
+  due_date?: string;
 }
 
 export interface TaskUpdate {
   title?: string;
   description?: string;
   status?: string;
+  assigned_user_id?: number;
   priority?: string;
   due_date?: string;
-  assigned_user_id?: number;
+}
+
+export interface TaskActivity {
+  id: number;
+  task_id: number;
+  user_id: number;
+  user?: User;
+  action: string;
+  field?: string;
+  old_value?: string;
+  new_value?: string;
+  timestamp: string;
+  created_at: string;
+}
+
+export interface TaskComment {
+  id: number;
+  task_id: number;
+  user_id: number;
+  user?: User;
+  content: string;
+  timestamp: string;
+  created_at: string;
+}
+
+export interface CSVImportResult {
+  projects_created: number;
+  tasks_created: number;
+  tasks_updated: number;
+  errors: string[];
 }
 
 export interface ProjectCreate {
@@ -183,7 +195,7 @@ export const deleteProject = async (projectId: number) => {
   return response.data;
 };
 
-// --- Project Membership API ---
+// --- Project Membership API (Week 3) ---
 
 export const getProjectMembers = async (projectId: number): Promise<ProjectMember[]> => {
   const response = await api.get<ProjectMember[]>(`/projects/${projectId}/members`);
@@ -225,27 +237,40 @@ export const deleteTask = async (taskId: number) => {
   return response.data;
 };
 
-// --- Task Activities (Audit Log) & Comments API ---
-
-export const getTaskActivities = async (taskId: number): Promise<TaskActivity[]> => {
-  const response = await api.get<TaskActivity[]>(`/tasks/${taskId}/activities`);
-  return response.data;
-};
-
-export const getTaskComments = async (taskId: number): Promise<TaskComment[]> => {
-  const response = await api.get<TaskComment[]>(`/tasks/${taskId}/comments`);
-  return response.data;
-};
-
-export const createTaskComment = async (taskId: number, content: string): Promise<TaskComment> => {
-  const response = await api.post<TaskComment>(`/tasks/${taskId}/comments`, { content });
-  return response.data;
-};
-
 // --- Users API ---
 
 export const getUsers = async () => {
   const response = await api.get<User[]>('/users/');
+  return response.data;
+};
+
+// --- History/Comments API ---
+
+export const getTaskActivities = async (taskId: number) => {
+  const response = await api.get<TaskActivity[]>(`/tasks/${taskId}/activities`);
+  return response.data;
+};
+
+export const getTaskComments = async (taskId: number) => {
+  const response = await api.get<TaskComment[]>(`/tasks/${taskId}/comments`);
+  return response.data;
+};
+
+export const createTaskComment = async (taskId: number, content: string) => {
+  const response = await api.post<TaskComment>(`/tasks/${taskId}/comments`, { content });
+  return response.data;
+};
+
+// --- CSV Import ---
+
+export const uploadCSV = async (file: File): Promise<CSVImportResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post<CSVImportResult>('/csv/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 };
 

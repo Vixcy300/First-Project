@@ -1,3 +1,5 @@
+import csv
+import io
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -252,3 +254,137 @@ def create_task_comment(db: Session, task_id: int, user_id: int, content: str):
 
 def get_task_comments(db: Session, task_id: int):
     return db.query(models.TaskComment).filter(models.TaskComment.task_id == task_id).order_by(models.TaskComment.created_at.asc()).all()
+
+
+# --- CSV Import & Bulk Update CRUD ---
+
+def import_csv_data(db: Session, current_user: models.User, csv_content: str):
+    # Support both UTF-8 with BOM and without
+    if csv_content.startswith('\ufeff'):
+        csv_content = csv_content[1:]
+
+    reader = csv.DictReader(io.StringIO(csv_content))
+    
+    projects_created = 0
+    tasks_created = 0
+    tasks_updated = 0
+    errors: List[str] = []
+    
+    # Cache user accessible projects
+    accessible_projects = get_projects(db, user_id=current_user.id)
+    project_map = {p.title.strip().lower(): p for p in accessible_projects}
+    
+    valid_statuses = {"To Do", "In Progress", "Done"}
+    valid_priorities = {"Low", "Medium", "High", "Urgent"}
+    
+    row_num = 1
+    for raw_row in reader:
+        row_num += 1
+        # Normalize column names: strip whitespace, lowercase
+        row = {}
+        for k, v in raw_row.items():
+            if k is not None:
+                cleaned_key = k.strip().lower().replace(" ", "_")
+                cleaned_val = v.strip() if isinstance(v, str) else v
+                row[cleaned_key] = cleaned_val
+
+        project_title = row.get("project_title") or row.get("project") or ""
+        task_title = row.get("task_title") or row.get("task") or row.get("title") or ""
+        
+        # Skip completely blank lines
+        if not project_title and not task_title:
+            continue
+            
+        if not project_title:
+            errors.append(f"Row {row_num}: Missing 'project_title'")
+            continue
+            
+        if not task_title:
+            errors.append(f"Row {row_num}: Missing 'task_title'")
+            continue
+
+        # 1. Get or create project
+        proj_key = project_title.lower()
+        if proj_key in project_map:
+            project = project_map[proj_key]
+        else:
+            project_create = schemas.ProjectCreate(
+                title=project_title,
+                description=f"Imported from CSV on {current_user.name}'s workspace"
+            )
+            project = create_project(db, project=project_create, owner_id=current_user.id)
+            project_map[proj_key] = project
+            projects_created += 1
+
+        # 2. Check if task already exists in this project
+        existing_task = db.query(models.Task).filter(
+            models.Task.project_id == project.id,
+            models.Task.title.ilike(task_title)
+        ).first()
+
+        # Parse task attributes
+        description = row.get("task_description") or row.get("description") or ""
+        
+        status_val = row.get("status") or "To Do"
+        status_match = next((s for s in valid_statuses if s.lower() == status_val.lower()), "To Do")
+        
+        priority_val = row.get("priority") or "Medium"
+        priority_match = next((p for p in valid_priorities if p.lower() == priority_val.lower()), "Medium")
+        
+        due_date = row.get("due_date") or None
+        if due_date:
+            due_date = due_date.strip()
+            # Basic validation for YYYY-MM-DD
+            if len(due_date) != 10 or due_date[4] != '-' or due_date[7] != '-':
+                due_date = None
+
+        # Assignee matching by email
+        assigned_user_id = None
+        assignee_email = row.get("assignee_email") or row.get("assignee") or ""
+        if assignee_email:
+            assigned_user = get_user_by_email(db, assignee_email)
+            if assigned_user:
+                if not is_project_member_or_owner(db, project_id=project.id, user_id=assigned_user.id):
+                    # Add as member if current user is owner
+                    if project.owner_id == current_user.id:
+                        add_project_member(db, project_id=project.id, user_id=assigned_user.id, role="member")
+                        assigned_user_id = assigned_user.id
+                    else:
+                        errors.append(f"Row {row_num}: User '{assignee_email}' is not a member of project '{project_title}'")
+                else:
+                    assigned_user_id = assigned_user.id
+            else:
+                errors.append(f"Row {row_num}: Assignee email '{assignee_email}' not found in registered users")
+
+        if existing_task:
+            # Update existing task
+            update_data = schemas.TaskUpdate(
+                title=task_title,
+                description=description if description else existing_task.description,
+                status=status_match,
+                priority=priority_match,
+                due_date=due_date if due_date is not None else existing_task.due_date,
+                assigned_user_id=assigned_user_id if assigned_user_id is not None else existing_task.assigned_user_id
+            )
+            update_task(db, task_id=existing_task.id, task_update=update_data, user_id=current_user.id)
+            tasks_updated += 1
+        else:
+            # Create new task
+            task_create = schemas.TaskCreate(
+                title=task_title,
+                description=description,
+                status=status_match,
+                priority=priority_match,
+                due_date=due_date,
+                project_id=project.id,
+                assigned_user_id=assigned_user_id
+            )
+            create_task(db, task=task_create, user_id=current_user.id)
+            tasks_created += 1
+
+    return {
+        "projects_created": projects_created,
+        "tasks_created": tasks_created,
+        "tasks_updated": tasks_updated,
+        "errors": errors
+    }

@@ -3,6 +3,7 @@ import { type Task, type Project, getTasks, getProjects, createTask, updateTask,
 import TaskForm from './TaskForm';
 import TaskDetailModal, { getDueDateBadge } from './TaskDetailModal';
 import KanbanBoard from './KanbanBoard';
+import CsvUploadModal from './CsvUploadModal';
 import { useToast } from '../context/ToastContext';
 
 const TaskList: React.FC = () => {
@@ -19,10 +20,26 @@ const TaskList: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<Task | null>(null);
+  const [showCsvModal, setShowCsvModal] = useState(false);
+
+  const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : null;
+
+  const handleStartEdit = (task: Task) => {
+    setEditingTaskId(task.id);
+    setShowForm(false);
+    setError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleViewModeChange = (mode: 'kanban' | 'list') => {
     setViewMode(mode);
     localStorage.setItem('task_view_mode', mode);
+  };
+
+  const handleCsvSuccess = async () => {
+    await refreshTasks();
+    const updatedProjects = await getProjects().catch(() => []);
+    setProjects(updatedProjects);
   };
 
   useEffect(() => {
@@ -183,8 +200,20 @@ const TaskList: React.FC = () => {
             </button>
           </div>
 
+          <button 
+            className="btn btn-secondary" 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={() => { setShowCsvModal(true); setError(''); }}
+            title="Import or update tasks and projects from a CSV spreadsheet"
+          >
+            📊 Upload CSV
+          </button>
+
           {!showForm && (
-            <button className="btn btn-primary" onClick={() => { setShowForm(true); setError(''); }}>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => { setShowForm(true); setEditingTaskId(null); setError(''); }}
+            >
               + New Task
             </button>
           )}
@@ -194,6 +223,7 @@ const TaskList: React.FC = () => {
       {error && <div className="error-message" style={{ marginBottom: '1.5rem' }}>{error}</div>}
 
       {/* Task Creation / Edit Form Modal or Inline */}
+      {/* Task Creation Form */}
       {showForm && (
         <div style={{ marginBottom: '2rem' }}>
           <TaskForm 
@@ -206,13 +236,35 @@ const TaskList: React.FC = () => {
       {loading ? (
         <div className="loader"></div>
       ) : viewMode === 'kanban' ? (
-        <KanbanBoard
-          tasks={tasks}
-          onStatusChange={handleStatusChange}
-          onEditTask={(t) => { setEditingTaskId(t.id); setShowForm(false); }}
-          onDeleteTask={handleDelete}
-          onOpenDetails={(t) => setSelectedTaskForModal(t)}
-        />
+        <>
+          {/* Edit Task Form in Kanban Mode */}
+          {editingTask && (
+            <div style={{ marginBottom: '2rem' }}>
+              <div className="flex justify-between items-center" style={{ marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem' }}>✏️ Edit Task: {editingTask.title}</h3>
+                <button 
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setEditingTaskId(null)}
+                >
+                  ✕ Close Edit
+                </button>
+              </div>
+              <TaskForm 
+                initialData={editingTask} 
+                onSubmit={handleUpdate} 
+                onCancel={() => setEditingTaskId(null)} 
+              />
+            </div>
+          )}
+
+          <KanbanBoard
+            tasks={tasks}
+            onStatusChange={handleStatusChange}
+            onEditTask={handleStartEdit}
+            onDeleteTask={handleDelete}
+            onOpenDetails={(t) => setSelectedTaskForModal(t)}
+          />
+        </>
       ) : (
         <div className="grid grid-cols-2">
           {tasks.map(task => {
@@ -316,6 +368,14 @@ const TaskList: React.FC = () => {
         <TaskDetailModal 
           task={selectedTaskForModal}
           onClose={() => setSelectedTaskForModal(null)}
+        />
+      )}
+
+      {/* Bulk CSV Import & Update Modal */}
+      {showCsvModal && (
+        <CsvUploadModal
+          onClose={() => setShowCsvModal(false)}
+          onSuccess={handleCsvSuccess}
         />
       )}
     </div>
