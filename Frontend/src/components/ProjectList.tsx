@@ -10,6 +10,7 @@ import {
   removeProjectMember
 } from '../api';
 import { useToast } from '../context/ToastContext';
+import CsvUploadModal from './CsvUploadModal';
 
 const ProjectList: React.FC = () => {
   const { toast } = useToast();
@@ -26,6 +27,18 @@ const ProjectList: React.FC = () => {
   const [activeProjectForMember, setActiveProjectForMember] = useState<number | null>(null);
   const [memberEmail, setMemberEmail] = useState('');
   const [memberLoading, setMemberLoading] = useState(false);
+
+  // State for CSV upload modal
+  const [showCsvModal, setShowCsvModal] = useState(false);
+
+  const handleCsvSuccess = async () => {
+    try {
+      const updated = await getProjects();
+      setProjects(updated);
+    } catch (err: any) {
+      // silently handle
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -130,6 +143,23 @@ const ProjectList: React.FC = () => {
   return (
     <div>
       <h1 className="page-title">Projects</h1>
+      <div className="flex justify-between items-center" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 className="page-title" style={{ margin: 0 }}>Projects</h1>
+          <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+            Manage and organize your projects, team members, and overall progress.
+          </p>
+        </div>
+
+        <button 
+          className="btn btn-secondary" 
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+          onClick={() => { setShowCsvModal(true); setError(''); }}
+          title="Import or update tasks and projects from a CSV spreadsheet"
+        >
+          📊 Upload CSV
+        </button>
+      </div>
       
       {error && <div className="error-message" style={{ marginBottom: '1.5rem' }}>{error}</div>}
       
@@ -292,6 +322,14 @@ const ProjectList: React.FC = () => {
             </p>
           )}
         </div>
+      )}
+
+      {/* Bulk CSV Import & Update Modal */}
+      {showCsvModal && (
+        <CsvUploadModal
+          onClose={() => setShowCsvModal(false)}
+          onSuccess={handleCsvSuccess}
+        />
       )}
     </div>
   );
