@@ -365,6 +365,94 @@ const Dashboard: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Team Workload & Capacity Matrix */}
+          <div className="card" style={{ marginTop: '1.5rem' }}>
+            <div className="flex justify-between items-center" style={{ marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem' }}>👥 Team Workload & Capacity Matrix</h3>
+                <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem', margin: '0.2rem 0 0 0' }}>
+                  Monitor task distribution, estimated vs logged effort, and workload capacity across your team.
+                </p>
+              </div>
+            </div>
+
+            {(() => {
+              const memberMap: Record<string, { name: string; email?: string; tasksCount: number; activeTasksCount: number; estHours: number; loggedHours: number }> = {};
+
+              tasks.forEach(t => {
+                const key = t.assignee ? t.assignee.email : (t.assigned_user_id ? `User #${t.assigned_user_id}` : 'Unassigned');
+                const displayName = t.assignee ? t.assignee.name : (t.assigned_user_id ? `User #${t.assigned_user_id}` : 'Unassigned');
+                if (!memberMap[key]) {
+                  memberMap[key] = { name: displayName, email: t.assignee?.email, tasksCount: 0, activeTasksCount: 0, estHours: 0, loggedHours: 0 };
+                }
+                memberMap[key].tasksCount += 1;
+                if (t.status !== 'Done') {
+                  memberMap[key].activeTasksCount += 1;
+                }
+                if (t.estimated_hours) memberMap[key].estHours += Number(t.estimated_hours);
+                if (t.logged_hours) memberMap[key].loggedHours += Number(t.logged_hours);
+              });
+
+              const membersList = Object.values(memberMap);
+
+              if (membersList.length === 0) {
+                return <p style={{ color: 'var(--text-soft)' }}>No assigned tasks found to calculate team workload.</p>;
+              }
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {membersList.map((m, idx) => {
+                    const isOverloaded = m.activeTasksCount >= 4 || m.estHours >= 30;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: 'var(--surface-alt)',
+                          padding: '1rem',
+                          borderRadius: '10px',
+                          border: `1px solid ${isOverloaded ? 'var(--warning)' : 'var(--border)'}`,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.6rem'
+                        }}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text)' }}>
+                            👤 {m.name}
+                          </span>
+                          {isOverloaded ? (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--warning)', backgroundColor: 'var(--warning-soft)', padding: '2px 8px', borderRadius: '12px' }}>
+                              ⚠️ High Load
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--success)', backgroundColor: 'var(--success-soft)', padding: '2px 8px', borderRadius: '12px' }}>
+                              Optimal
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-soft)' }}>
+                          <span>Active Tasks: <strong style={{ color: 'var(--text)' }}>{m.activeTasksCount}</strong> ({m.tasksCount} total)</span>
+                          <span>Est: <strong style={{ color: 'var(--text)' }}>{m.estHours}h</strong></span>
+                        </div>
+
+                        <div className="progress-bar-track" style={{ height: '6px' }}>
+                          <div
+                            className="progress-bar-fill"
+                            style={{
+                              width: `${Math.min(100, Math.round((m.activeTasksCount / 5) * 100))}%`,
+                              backgroundColor: isOverloaded ? 'var(--warning)' : 'var(--primary)'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
         </>
       )}
     </div>

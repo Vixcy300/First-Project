@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { type User, getCurrentUser, logoutUser } from '../api';
+import { type User, getCurrentUser, logoutUser, sendTestNotification } from '../api';
 import NotificationCenter from './NotificationCenter';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useToast } from '../context/ToastContext';
 
 const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { isConnected } = useWebSocket();
+  const { toast } = useToast();
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
 
   useEffect(() => {
     getCurrentUser()
@@ -22,6 +35,15 @@ const Layout: React.FC = () => {
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
+  };
+
+  const handleTestAlert = async () => {
+    try {
+      await sendTestNotification();
+      toast.success('🔔 Test notification sent!');
+    } catch {
+      toast.error('Failed to send test notification');
+    }
   };
 
   return (
@@ -65,6 +87,24 @@ const Layout: React.FC = () => {
           </div>
 
           <div className="top-navbar-right">
+            <button
+              onClick={toggleTheme}
+              className="btn btn-secondary btn-sm"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+            </button>
+
+            <button
+              onClick={handleTestAlert}
+              className="btn btn-secondary btn-sm"
+              title="Send a test notification"
+              style={{ fontSize: '0.82rem' }}
+            >
+              🔔 Test Alert
+            </button>
+
             <NotificationCenter />
             {currentUser && (
               <div className="user-pill">

@@ -42,6 +42,16 @@ export interface Notification {
   created_at: string;
 }
 
+export interface TaskAttachment {
+  id: number;
+  task_id: number;
+  user_id: number;
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  created_at: string;
+}
+
 export interface Task {
   id: number;
   title: string;
@@ -52,7 +62,12 @@ export interface Task {
   assignee?: User;
   priority?: string;
   due_date?: string;
+  start_date?: string;
+  tags?: string;
+  estimated_hours?: number;
+  logged_hours?: number;
   subtasks?: Subtask[];
+  attachments?: TaskAttachment[];
 }
 
 export interface Project {
@@ -353,6 +368,27 @@ export const uploadCSV = async (file: File): Promise<CSVImportResult> => {
       'Content-Type': 'multipart/form-data',
     },
   });
+  return response.data;
+};
+
+// --- Attachments API ---
+
+export const getTaskAttachments = async (taskId: number): Promise<TaskAttachment[]> => {
+  const response = await api.get<TaskAttachment[]>(`/tasks/${taskId}/attachments`);
+  return response.data;
+};
+
+export const uploadTaskAttachment = async (taskId: number, file: File): Promise<TaskAttachment> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post<TaskAttachment>(`/tasks/${taskId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const deleteTaskAttachment = async (attachmentId: number): Promise<TaskAttachment> => {
+  const response = await api.delete<TaskAttachment>(`/attachments/${attachmentId}`);
   return response.data;
 };
 
