@@ -41,7 +41,7 @@ def init_db():
             connection.execute(text("UPDATE projects SET owner_id = (SELECT id FROM users LIMIT 1) WHERE owner_id IS NULL"))
             connection.commit()
 
-        # 2. Tasks priority & due_date & tags & times migration
+        # 2. Tasks priority & due_date migration
         task_result = connection.execute(text("PRAGMA table_info(tasks)")).fetchall()
         task_columns = [row[1] for row in task_result]
         if task_columns:
@@ -51,28 +51,8 @@ def init_db():
             if "due_date" not in task_columns:
                 connection.execute(text("ALTER TABLE tasks ADD COLUMN due_date TEXT"))
                 connection.commit()
-            if "tags" not in task_columns:
-                connection.execute(text("ALTER TABLE tasks ADD COLUMN tags TEXT"))
-                connection.commit()
-            if "start_date" not in task_columns:
-                connection.execute(text("ALTER TABLE tasks ADD COLUMN start_date TEXT"))
-                connection.commit()
-            if "estimated_hours" not in task_columns:
-                connection.execute(text("ALTER TABLE tasks ADD COLUMN estimated_hours REAL"))
-                connection.commit()
-            if "logged_hours" not in task_columns:
-                connection.execute(text("ALTER TABLE tasks ADD COLUMN logged_hours REAL"))
-                connection.commit()
 
-        # 3. Task attachments table check
-        att_result = connection.execute(text("PRAGMA table_info(task_attachments)")).fetchall()
-        att_columns = [row[1] for row in att_result]
-        if att_columns and "user_id" not in att_columns:
-            connection.execute(text("DROP TABLE task_attachments"))
-            connection.commit()
-            Base.metadata.create_all(bind=engine)
-
-        # 4. Add project owners to project_members table if not already present
+        # 3. Add project owners to project_members table if not already present
         try:
             connection.execute(text("""
                 INSERT INTO project_members (project_id, user_id, role)

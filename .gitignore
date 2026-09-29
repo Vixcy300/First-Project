@@ -25,7 +25,3 @@ Backend/app.db
 .vscode/
 .idea/
 .DS_Store
-
-# Uploads
-uploads/
-Backend/uploads/

@@ -15,6 +15,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onSubmit, onCancel }) 
   const [status, setStatus] = useState(initialData?.status || 'To Do');
   const [priority, setPriority] = useState(initialData?.priority || 'Medium');
   const [dueDate, setDueDate] = useState(initialData?.due_date || '');
+  const [startDate, setStartDate] = useState(initialData?.start_date || '');
+  const [tags, setTags] = useState(initialData?.tags || '');
+  const [estimatedHours, setEstimatedHours] = useState(initialData?.estimated_hours?.toString() || '');
   const [projectId, setProjectId] = useState<number | ''>(initialData?.project_id || '');
   const [assignedUserId, setAssignedUserId] = useState<number | ''>(initialData?.assigned_user_id || '');
   
@@ -87,6 +90,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onSubmit, onCancel }) 
         status,
         priority,
         due_date: dueDate || null,
+        start_date: startDate || null,
+        tags: tags.trim() || null,
+        estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
         project_id: Number(projectId),
         assigned_user_id: assignedUserId === '' ? null : Number(assignedUserId),
       };
@@ -206,6 +212,41 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onSubmit, onCancel }) 
             className="form-control" 
             value={dueDate} 
             onChange={e => setDueDate(e.target.value)} 
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3">
+        <div className="form-group">
+          <label className="form-label">Start Date</label>
+          <input 
+            type="date" 
+            className="form-control" 
+            value={startDate} 
+            onChange={e => setStartDate(e.target.value)} 
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Tags (comma separated)</label>
+          <input 
+            type="text" 
+            className="form-control" 
+            value={tags} 
+            onChange={e => setTags(e.target.value)} 
+            placeholder="frontend, bug, urgent"
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Est. Hours</label>
+          <input 
+            type="number" 
+            step="0.5"
+            className="form-control" 
+            value={estimatedHours} 
+            onChange={e => setEstimatedHours(e.target.value)} 
+            placeholder="e.g. 2.5"
           />
         </div>
       </div>
