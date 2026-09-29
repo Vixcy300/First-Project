@@ -3,11 +3,17 @@ import {
   type Task, 
   type TaskActivity, 
   type TaskComment, 
+  type Subtask,
   getTaskActivities, 
   getTaskComments, 
-  createTaskComment 
+  createTaskComment,
+  getSubtasks,
+  createSubtask,
+  updateSubtask,
+  deleteSubtask
 } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useWebSocket } from '../context/WebSocketContext';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -63,19 +69,25 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose }) => {
   const [activeTab, setActiveTab] = useState<'comments' | 'activities'>('comments');
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activities, setActivities] = useState<TaskActivity[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [addingSubtask, setAddingSubtask] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
+  const { addListener } = useWebSocket();
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [commentsData, activitiesData] = await Promise.all([
+      const [commentsData, activitiesData, subtasksData] = await Promise.all([
         getTaskComments(task.id),
-        getTaskActivities(task.id)
+        getTaskActivities(task.id),
+        getSubtasks(task.id)
       ]);
       setComments(commentsData);
       setActivities(activitiesData);
+      setSubtasks(subtasksData);
     } catch (err) {
       console.error("Failed to load task discussion data", err);
     } finally {
@@ -85,7 +97,54 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose }) => {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+
+    const unsubscribe = addListener((event) => {
+      if (
+        (event.type === 'SUBTASK_UPDATED' && event.data?.task_id === task.id) ||
+        (event.type === 'COMMENT_CREATED' && event.data?.task_id === task.id)
+      ) {
+        loadData();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [loadData, addListener, task.id]);
+
+  const handleToggleSubtask = async (subtask: Subtask) => {
+    try {
+      const updated = await updateSubtask(subtask.id, { completed: !subtask.completed });
+      setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? updated : s)));
+    } catch {
+      toast.error('Failed to update subtask');
+    }
+  };
+
+  const handleAddSubtask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubtaskTitle.trim()) return;
+
+    setAddingSubtask(true);
+    try {
+      const created = await createSubtask(task.id, newSubtaskTitle.trim());
+      setSubtasks((prev) => [...prev, created]);
+      setNewSubtaskTitle('');
+      toast.success('Subtask added!');
+    } catch {
+      toast.error('Failed to add subtask');
+    } finally {
+      setAddingSubtask(false);
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: number) => {
+    try {
+      await deleteSubtask(subtaskId);
+      setSubtasks((prev) => prev.filter((s) => s.id !== subtaskId));
+      toast.success('Subtask deleted');
+    } catch {
+      toast.error('Failed to delete subtask');
+    }
+  };
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +207,96 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose }) => {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Subtasks & Checklist Section */}
+          <div className="subtasks-section" style={{ margin: '1.25rem 0', padding: '1rem', backgroundColor: 'var(--surface-hover)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <div className="flex justify-between items-center" style={{ marginBottom: '0.6rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                ☑ Subtasks Checklist ({subtasks.filter(s => s.completed).length}/{subtasks.length})
+              </span>
+              {subtasks.length > 0 && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)', fontWeight: 600 }}>
+                  {Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100)}%
+                </span>
+              )}
+            </div>
+
+            {subtasks.length > 0 && (
+              <div className="progress-bar-track" style={{ height: '6px', marginBottom: '0.9rem' }}>
+                <div
+                  className="progress-bar-fill"
+                  style={{
+                    width: `${Math.round((subtasks.filter(s => s.completed).length / subtasks.length) * 100)}%`,
+                    backgroundColor: subtasks.filter(s => s.completed).length === subtasks.length ? 'var(--success)' : 'var(--primary)'
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Subtasks List */}
+            <div className="subtasks-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
+              {subtasks.map(s => (
+                <div
+                  key={s.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.4rem 0.6rem',
+                    backgroundColor: 'var(--surface)',
+                    borderRadius: '5px',
+                    border: '1px solid var(--border)'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={s.completed}
+                    onChange={() => handleToggleSubtask(s)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: '0.88rem',
+                      textDecoration: s.completed ? 'line-through' : 'none',
+                      color: s.completed ? 'var(--text-soft)' : 'var(--text)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleToggleSubtask(s)}
+                  >
+                    {s.title}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteSubtask(s.id)}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }}
+                    title="Delete subtask"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add Subtask Form */}
+            <form onSubmit={handleAddSubtask} style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Add a new checklist subtask..."
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.7rem' }}
+              />
+              <button
+                type="submit"
+                className="btn btn-sm btn-primary"
+                disabled={addingSubtask || !newSubtaskTitle.trim()}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                + Add
+              </button>
+            </form>
           </div>
 
           {/* Tab Navigation */}

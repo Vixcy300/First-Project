@@ -116,9 +116,16 @@ def is_project_owner(db: Session, project_id: int, user_id: int) -> bool:
 
 
 def get_project_members(db: Session, project_id: int):
-    members = db.query(models.ProjectMember).filter(models.ProjectMember.project_id == project_id).all()
-    user_ids = [m.user_id for m in members]
-    return db.query(models.User).filter(models.User.id.in_(user_ids)).all()
+    """
+    Return the ProjectMember rows of a project (with their nested `user`).
+
+    Returning ProjectMember objects keeps the membership `role` alongside the
+    user data, which is what the API/frontend expect from
+    GET /projects/{project_id}/members (List[schemas.ProjectMember]).
+    """
+    return db.query(models.ProjectMember).filter(
+        models.ProjectMember.project_id == project_id
+    ).all()
 
 
 def add_project_member(db: Session, project_id: int, user_id: int, role: str = "member"):
@@ -175,6 +182,16 @@ def create_task(db: Session, task: schemas.TaskCreate, user_id: Optional[int] = 
     if user_id:
         create_task_activity(db, task_id=db_task.id, user_id=user_id, action="created this task")
 
+    # If assigned to another user, trigger notification
+    if db_task.assigned_user_id and db_task.assigned_user_id != user_id:
+        create_notification(
+            db,
+            user_id=db_task.assigned_user_id,
+            title="Task Assigned",
+            message=f"You have been assigned to task '{db_task.title}'",
+            link="/tasks"
+        )
+
     return db_task
 
 
@@ -187,6 +204,9 @@ def update_task(db: Session, task_id: int, task_update: schemas.TaskUpdate, user
 
     # Track changes for Activity Audit Log
     activities = []
+    old_assigned_user_id = db_task.assigned_user_id
+    old_status = db_task.status
+
     if "status" in update_data and update_data["status"] != db_task.status:
         activities.append(f"changed status to '{update_data['status']}'")
     if "priority" in update_data and update_data["priority"] != db_task.priority:
@@ -214,6 +234,30 @@ def update_task(db: Session, task_id: int, task_update: schemas.TaskUpdate, user
         for act in activities:
             create_task_activity(db, task_id=task_id, user_id=user_id, action=act)
 
+    # Trigger notifications:
+    # 1. If assigned to a new user
+    if "assigned_user_id" in update_data and update_data["assigned_user_id"] and update_data["assigned_user_id"] != old_assigned_user_id:
+        if update_data["assigned_user_id"] != user_id:
+            create_notification(
+                db,
+                user_id=update_data["assigned_user_id"],
+                title="Task Assigned",
+                message=f"You have been assigned to task '{db_task.title}'",
+                link="/tasks"
+            )
+
+    # 2. If status was changed to 'Done'
+    if "status" in update_data and update_data["status"] == "Done" and old_status != "Done":
+        project = get_project(db, db_task.project_id)
+        if project and project.owner_id and project.owner_id != user_id:
+            create_notification(
+                db,
+                user_id=project.owner_id,
+                title="Task Completed",
+                message=f"Task '{db_task.title}' in '{project.title}' was marked as Done",
+                link="/tasks"
+            )
+
     return db_task
 
 
@@ -239,6 +283,85 @@ def get_task_activities(db: Session, task_id: int):
     return db.query(models.TaskActivity).filter(models.TaskActivity.task_id == task_id).order_by(models.TaskActivity.created_at.desc()).all()
 
 
+# --- Notifications CRUD ---
+
+def create_notification(db: Session, user_id: int, title: str, message: str, link: Optional[str] = None):
+    notification = models.Notification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        link=link,
+        is_read=False
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    return notification
+
+
+def get_user_notifications(db: Session, user_id: int, limit: int = 50):
+    return db.query(models.Notification).filter(
+        models.Notification.user_id == user_id
+    ).order_by(models.Notification.created_at.desc()).limit(limit).all()
+
+
+def mark_notification_read(db: Session, notification_id: int, user_id: int):
+    notification = db.query(models.Notification).filter(
+        models.Notification.id == notification_id,
+        models.Notification.user_id == user_id
+    ).first()
+    if notification:
+        notification.is_read = True
+        db.commit()
+        db.refresh(notification)
+    return notification
+
+
+def mark_all_notifications_read(db: Session, user_id: int):
+    db.query(models.Notification).filter(
+        models.Notification.user_id == user_id,
+        models.Notification.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+    return True
+
+
+# --- Subtasks CRUD ---
+
+def get_subtasks(db: Session, task_id: int):
+    return db.query(models.Subtask).filter(
+        models.Subtask.task_id == task_id
+    ).order_by(models.Subtask.created_at.asc()).all()
+
+
+def create_subtask(db: Session, task_id: int, title: str):
+    subtask = models.Subtask(task_id=task_id, title=title, completed=False)
+    db.add(subtask)
+    db.commit()
+    db.refresh(subtask)
+    return subtask
+
+
+def update_subtask(db: Session, subtask_id: int, update_data: schemas.SubtaskUpdate):
+    subtask = db.query(models.Subtask).filter(models.Subtask.id == subtask_id).first()
+    if not subtask:
+        return None
+    data = update_data.model_dump(exclude_unset=True)
+    for key, val in data.items():
+        setattr(subtask, key, val)
+    db.commit()
+    db.refresh(subtask)
+    return subtask
+
+
+def delete_subtask(db: Session, subtask_id: int):
+    subtask = db.query(models.Subtask).filter(models.Subtask.id == subtask_id).first()
+    if subtask:
+        db.delete(subtask)
+        db.commit()
+    return subtask
+
+
 # --- Task Comments CRUD ---
 
 def create_task_comment(db: Session, task_id: int, user_id: int, content: str):
@@ -249,6 +372,22 @@ def create_task_comment(db: Session, task_id: int, user_id: int, content: str):
 
     # Also log in activity
     create_task_activity(db, task_id=task_id, user_id=user_id, action="commented on this task")
+
+    # Notify task assignee if someone else commented
+    task = get_task(db, task_id)
+    commenter = get_user(db, user_id)
+    commenter_name = commenter.name if commenter else "A teammate"
+
+    if task:
+        if task.assigned_user_id and task.assigned_user_id != user_id:
+            create_notification(
+                db,
+                user_id=task.assigned_user_id,
+                title="New Comment",
+                message=f"{commenter_name} commented on '{task.title}': \"{content[:40]}{'...' if len(content)>40 else ''}\"",
+                link="/tasks"
+            )
+
     return comment
 
 

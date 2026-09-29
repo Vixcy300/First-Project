@@ -1,1 +1,2 @@
 py -m uvicorn main:app --reload
+npm.cmd run dev

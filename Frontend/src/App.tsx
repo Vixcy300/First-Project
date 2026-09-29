@@ -6,6 +6,7 @@ import ProjectList from './components/ProjectList';
 import TaskList from './components/TaskList';
 import AuthPage from './components/AuthPage';
 import { ToastProvider } from './context/ToastContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 import './index.css';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -16,18 +17,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const App: React.FC = () => {
   return (
     <ToastProvider>
-      <Routes>
-        <Route path="/login" element={<AuthPage mode="login" />} />
-        <Route path="/register" element={<AuthPage mode="register" />} />
+      <WebSocketProvider>
+        <Routes>
+          <Route path="/login" element={<AuthPage mode="login" />} />
+          <Route path="/register" element={<AuthPage mode="register" />} />
 
-        <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="projects" element={<ProjectList />} />
-          <Route path="tasks" element={<TaskList />} />
-        </Route>
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="projects" element={<ProjectList />} />
+            <Route path="tasks" element={<TaskList />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </WebSocketProvider>
     </ToastProvider>
   );
 };

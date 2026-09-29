@@ -6,7 +6,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-});
+}); 
 
 // --- TypeScript Interfaces ---
 
@@ -24,6 +24,24 @@ export interface ProjectMember {
   user?: User;
 }
 
+export interface Subtask {
+  id: number;
+  task_id: number;
+  title: string;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  title: string;
+  message: string;
+  link?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export interface Task {
   id: number;
   title: string;
@@ -34,6 +52,7 @@ export interface Task {
   assignee?: User;
   priority?: string;
   due_date?: string;
+  subtasks?: Subtask[];
 }
 
 export interface Project {
@@ -258,6 +277,69 @@ export const getTaskComments = async (taskId: number) => {
 
 export const createTaskComment = async (taskId: number, content: string) => {
   const response = await api.post<TaskComment>(`/tasks/${taskId}/comments`, { content });
+  return response.data;
+};
+
+// --- Subtasks API ---
+
+export const getSubtasks = async (taskId: number): Promise<Subtask[]> => {
+  const response = await api.get<Subtask[]>(`/tasks/${taskId}/subtasks`);
+  return response.data;
+};
+
+export const createSubtask = async (taskId: number, title: string): Promise<Subtask> => {
+  const response = await api.post<Subtask>(`/tasks/${taskId}/subtasks`, { title });
+  return response.data;
+};
+
+export const updateSubtask = async (
+  subtaskId: number,
+  data: { title?: string; completed?: boolean }
+): Promise<Subtask> => {
+  const response = await api.patch<Subtask>(`/subtasks/${subtaskId}`, data);
+  return response.data;
+};
+
+export const deleteSubtask = async (subtaskId: number): Promise<Subtask> => {
+  const response = await api.delete<Subtask>(`/subtasks/${subtaskId}`);
+  return response.data;
+};
+
+// --- Notifications API ---
+
+export const getNotifications = async (limit: number = 50): Promise<Notification[]> => {
+  const response = await api.get<Notification[]>(`/notifications/?limit=${limit}`);
+  return response.data;
+};
+
+export const markNotificationRead = async (notificationId: number): Promise<Notification> => {
+  const response = await api.patch<Notification>(`/notifications/${notificationId}/read`);
+  return response.data;
+};
+
+export const markAllNotificationsRead = async (): Promise<{ message: string }> => {
+  const response = await api.post<{ message: string }>('/notifications/read-all');
+  return response.data;
+};
+
+export const sendTestNotification = async (): Promise<Notification> => {
+  const response = await api.post<Notification>('/notifications/test');
+  return response.data;
+};
+
+// --- CSV Export API ---
+
+export const exportProjectCSV = async (projectId: number): Promise<Blob> => {
+  const response = await api.get(`/projects/${projectId}/export/csv`, {
+    responseType: 'blob'
+  });
+  return response.data;
+};
+
+export const exportAllTasksCSV = async (): Promise<Blob> => {
+  const response = await api.get('/tasks/export/csv', {
+    responseType: 'blob'
+  });
   return response.data;
 };
 

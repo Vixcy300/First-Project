@@ -125,6 +125,29 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       </p>
                     )}
 
+                    {/* Subtasks Checklist Progress (if any) */}
+                    {task.subtasks && task.subtasks.length > 0 && (() => {
+                      const completedCount = task.subtasks.filter(s => s.completed).length;
+                      const percent = Math.round((completedCount / task.subtasks.length) * 100);
+                      return (
+                        <div className="kanban-card-subtasks" style={{ margin: '0.5rem 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-soft)', marginBottom: '0.2rem' }}>
+                            <span>☑ Subtasks</span>
+                            <span>{completedCount}/{task.subtasks.length} ({percent}%)</span>
+                          </div>
+                          <div className="progress-bar-track" style={{ height: '4px' }}>
+                            <div
+                              className="progress-bar-fill"
+                              style={{
+                                width: `${percent}%`,
+                                backgroundColor: percent === 100 ? 'var(--success)' : 'var(--primary)'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Footer Info */}
                     <div className="kanban-card-footer">
                       <span className="kanban-assignee">
@@ -135,7 +158,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         <button
                           className="btn-icon"
                           onClick={() => onOpenDetails(task)}
-                          title="Open Comments & History"
+                          title="Open Subtasks, Comments & History"
                         >
                           💬
                         </button>
@@ -161,7 +184,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
               {colTasks.length === 0 && (
                 <div className="kanban-empty-dropzone">
-                  Drag tasks here
+                  ⬇️ Drop tasks here
                 </div>
               )}
             </div>

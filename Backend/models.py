@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -15,6 +15,7 @@ class User(Base):
     tasks = relationship("Task", back_populates="assignee")
     owned_projects = relationship("Project", back_populates="owner", foreign_keys="Project.owner_id")
     project_memberships = relationship("ProjectMember", back_populates="user")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan", order_by="desc(Notification.created_at)")
 
 
 class Project(Base):
@@ -60,6 +61,7 @@ class Task(Base):
     assignee = relationship("User", back_populates="tasks")
     activities = relationship("TaskActivity", back_populates="task", cascade="all, delete-orphan", order_by="desc(TaskActivity.created_at)")
     comments = relationship("TaskComment", back_populates="task", cascade="all, delete-orphan", order_by="TaskComment.created_at")
+    subtasks = relationship("Subtask", back_populates="task", cascade="all, delete-orphan", order_by="Subtask.created_at")
 
 
 class TaskActivity(Base):
@@ -86,3 +88,30 @@ class TaskComment(Base):
 
     task = relationship("Task", back_populates="comments")
     user = relationship("User")
+
+
+class Subtask(Base):
+    __tablename__ = "subtasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    title = Column(String, nullable=False)
+    completed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    task = relationship("Task", back_populates="subtasks")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    link = Column(String, nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="notifications")
+

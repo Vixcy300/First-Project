@@ -1272,5 +1272,283 @@ select {
   background: var(--success);
 }
 
+/* =========================================================
+   Top Navbar & WebSocket Live Indicator
+   ========================================================= */
+.top-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  margin: -2rem -2rem 1.75rem -2rem;
+  position: sticky;
+  top: 0;
+  z-index: 99;
+}
+
+.top-navbar-left, .top-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ws-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+}
+
+.ws-status-indicator.connected {
+  color: #16a34a;
+}
+
+.ws-status-indicator.disconnected {
+  color: #ea580c;
+}
+
+.ws-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.ws-status-indicator.connected .ws-dot {
+  background-color: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  animation: pulseDot 2s infinite;
+}
+
+.ws-status-indicator.disconnected .ws-dot {
+  background-color: #f97316;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.15); }
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.35rem;
+  background: var(--surface-hover);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* =========================================================
+   In-App Notification Center
+   ========================================================= */
+.notification-center-wrapper {
+  position: relative;
+}
+
+.notification-bell-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.notification-bell-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 1px 5px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+  animation: bounceIn 0.3s ease;
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  max-width: 90vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+  z-index: 1000;
+  overflow: hidden;
+  animation: modalScaleUp 0.18s ease;
+}
+
+.notification-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.notification-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  transition: background 0.15s ease;
+}
+
+.notification-item:hover {
+  background: var(--surface-hover);
+}
+
+.notification-item.unread {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.notification-item-content {
+  flex: 1;
+}
+
+.notification-item-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.notification-time {
+  font-size: 0.72rem;
+  color: var(--text-soft);
+}
+
+.notification-item-message {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  line-height: 1.4;
+}
+
+.notification-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   Enhanced Kanban Drag & Drop Feedback
+   ========================================================= */
+.kanban-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  cursor: grab;
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+.kanban-card.dragging {
+  opacity: 0.45;
+  transform: rotate(2deg) scale(0.98);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+  border: 1px dashed var(--primary);
+}
+
+.kanban-column.drag-over {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border: 2px dashed var(--primary) !important;
+  box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+/* =========================================================
+   Print / Executive PDF Report Styles
+   ========================================================= */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .sidebar,
+  .top-navbar,
+  .no-print,
+  .btn,
+  .notification-center-wrapper {
+    display: none !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    break-inside: avoid;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
 
 

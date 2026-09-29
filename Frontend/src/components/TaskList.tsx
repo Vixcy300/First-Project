@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { type Task, type Project, getTasks, getProjects, createTask, updateTask, deleteTask } from '../api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  type Task, 
+  type Project, 
+  getTasks, 
+  getProjects, 
+  createTask, 
+  updateTask, 
+  deleteTask,
+  exportProjectCSV,
+  exportAllTasksCSV
+} from '../api';
 import TaskForm from './TaskForm';
 import TaskDetailModal, { getDueDateBadge } from './TaskDetailModal';
 import KanbanBoard from './KanbanBoard';
 import CsvUploadModal from './CsvUploadModal';
 import { useToast } from '../context/ToastContext';
+import { useWebSocket } from '../context/WebSocketContext';
 
 const TaskList: React.FC = () => {
   const { toast } = useToast();
@@ -73,7 +84,9 @@ const TaskList: React.FC = () => {
     };
   }, [selectedProjectId]);
 
-  const refreshTasks = async () => {
+  const { addListener } = useWebSocket();
+
+  const refreshTasks = useCallback(async () => {
     try {
       const data = await getTasks(selectedProjectId === '' ? undefined : Number(selectedProjectId));
       setTasks(data);
@@ -85,6 +98,43 @@ const TaskList: React.FC = () => {
       const msg = err?.response?.data?.detail || 'Failed to refresh tasks.';
       setError(msg);
       toast.error(msg);
+    }
+  }, [selectedProjectId, selectedTaskForModal, toast]);
+
+  useEffect(() => {
+    const unsubscribe = addListener((event) => {
+      if (
+        event.type === 'TASK_CREATED' ||
+        event.type === 'TASK_UPDATED' ||
+        event.type === 'TASK_DELETED' ||
+        event.type === 'SUBTASK_UPDATED' ||
+        event.type === 'CSV_IMPORTED'
+      ) {
+        refreshTasks();
+      }
+    });
+    return () => unsubscribe();
+  }, [addListener, refreshTasks]);
+
+  const handleExportTasks = async () => {
+    try {
+      let blob: Blob;
+      if (selectedProjectId !== '') {
+        blob = await exportProjectCSV(Number(selectedProjectId));
+      } else {
+        blob = await exportAllTasksCSV();
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tasks_report_${selectedProjectId ? `project_${selectedProjectId}` : 'all'}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("Tasks exported to CSV!");
+    } catch {
+      toast.error("Failed to export tasks to CSV");
     }
   };
 
@@ -207,6 +257,15 @@ const TaskList: React.FC = () => {
             title="Import or update tasks and projects from a CSV spreadsheet"
           >
             📊 Upload CSV
+          </button>
+
+          <button 
+            className="btn btn-secondary" 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={handleExportTasks}
+            title="Export tasks to CSV"
+          >
+            📥 Export CSV
           </button>
 
           {!showForm && (

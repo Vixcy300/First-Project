@@ -7,9 +7,11 @@ import {
   deleteProject,
   getCurrentUser,
   addProjectMember,
-  removeProjectMember
+  removeProjectMember,
+  exportProjectCSV
 } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useWebSocket } from '../context/WebSocketContext';
 import CsvUploadModal from './CsvUploadModal';
 
 const ProjectList: React.FC = () => {
@@ -30,6 +32,7 @@ const ProjectList: React.FC = () => {
 
   // State for CSV upload modal
   const [showCsvModal, setShowCsvModal] = useState(false);
+  const { addListener } = useWebSocket();
 
   const handleCsvSuccess = async () => {
     try {
@@ -37,6 +40,37 @@ const ProjectList: React.FC = () => {
       setProjects(updated);
     } catch (err: any) {
       // silently handle
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = addListener((event) => {
+      if (
+        event.type === 'TASK_CREATED' ||
+        event.type === 'TASK_UPDATED' ||
+        event.type === 'TASK_DELETED' ||
+        event.type === 'CSV_IMPORTED'
+      ) {
+        getProjects().then(setProjects).catch(() => {});
+      }
+    });
+    return () => unsubscribe();
+  }, [addListener]);
+
+  const handleExportProject = async (projectId: number, projectTitle: string) => {
+    try {
+      const blob = await exportProjectCSV(projectId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${projectTitle.replace(/\s+/g, '_')}_tasks.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success(`Exported ${projectTitle} tasks to CSV!`);
+    } catch {
+      toast.error("Failed to export project tasks");
     }
   };
 
@@ -142,7 +176,6 @@ const ProjectList: React.FC = () => {
 
   return (
     <div>
-      <h1 className="page-title">Projects</h1>
       <div className="flex justify-between items-center" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="page-title" style={{ margin: 0 }}>Projects</h1>
@@ -300,17 +333,28 @@ const ProjectList: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex justify-between items-center" style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+                <div className="flex justify-between items-center" style={{ marginTop: 'auto', paddingTop: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
                   <span className="badge badge-todo">{project.tasks?.length || 0} Tasks</span>
-                  {/* Delete button: Visible to owner */}
-                  {isOwner && (
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                     <button 
-                      className="btn btn-sm btn-danger" 
-                      onClick={() => handleDeleteProject(project.id)}
+                      className="btn btn-sm btn-secondary" 
+                      onClick={() => handleExportProject(project.id, project.title)}
+                      title="Export this project's tasks to CSV"
+                      style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
                     >
-                      Delete Project
+                      📥 Export
                     </button>
-                  )}
+                    {/* Delete button: Visible to owner */}
+                    {isOwner && (
+                      <button 
+                        className="btn btn-sm btn-danger" 
+                        onClick={() => handleDeleteProject(project.id)}
+                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                      >
+                        Delete Project
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

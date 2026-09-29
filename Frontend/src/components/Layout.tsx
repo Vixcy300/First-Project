@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { type User, getCurrentUser, logoutUser } from '../api';
+import NotificationCenter from './NotificationCenter';
+import { useWebSocket } from '../context/WebSocketContext';
 
 const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { isConnected } = useWebSocket();
 
   useEffect(() => {
     getCurrentUser()
@@ -50,7 +53,31 @@ const Layout: React.FC = () => {
       </aside>
 
       <main className="main-content">
-        <Outlet />
+        <header className="top-navbar">
+          <div className="top-navbar-left">
+            <span 
+              className={`ws-status-indicator ${isConnected ? 'connected' : 'disconnected'}`}
+              title={isConnected ? 'Real-time WebSocket connected' : 'WebSocket reconnecting'}
+            >
+              <span className="ws-dot" />
+              <span>{isConnected ? 'Live Synced' : 'Reconnecting...'}</span>
+            </span>
+          </div>
+
+          <div className="top-navbar-right">
+            <NotificationCenter />
+            {currentUser && (
+              <div className="user-pill">
+                <span className="user-avatar">{currentUser.name.charAt(0).toUpperCase()}</span>
+                <span className="user-name">{currentUser.name}</span>
+              </div>
+            )}
+          </div>
+        </header>
+
+        <div className="page-body">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

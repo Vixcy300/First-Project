@@ -1,9 +1,12 @@
+import csv
+import io
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import jwt
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
@@ -31,6 +34,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Real-Time WebSocket Connection Manager ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        dead_connections = []
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                dead_connections.append(connection)
+        for dead in dead_connections:
+            self.disconnect(dead)
+
+
+manager = ConnectionManager()
+
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -68,6 +99,21 @@ def get_current_user(
 @app.get("/health")
 def health_check():
     return {"status": "ok", "message": "Backend is running smoothly!"}
+
+
+# --- WebSocket Route for Live Sync ---
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
 
 
 # --- Auth Routes ---
@@ -112,7 +158,6 @@ def create_project(
 ):
     return crud.create_project(db=db, project=project, owner_id=current_user.id)
 
-
 @app.get("/projects/", response_model=List[schemas.Project])
 def read_projects(
     skip: int = 0,
@@ -136,7 +181,6 @@ def read_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
-
 @app.delete("/projects/{project_id}")
 def delete_project(
     project_id: int,
@@ -153,7 +197,7 @@ def delete_project(
 
 
 # --- Project Members Routes ---
-@app.get("/projects/{project_id}/members", response_model=List[schemas.User])
+@app.get("/projects/{project_id}/members", response_model=List[schemas.ProjectMember])
 def get_project_members(
     project_id: int,
     db: Session = Depends(get_db),
@@ -202,7 +246,7 @@ def remove_project_member(
 
 # --- Tasks Routes ---
 @app.post("/tasks/", response_model=schemas.Task)
-def create_task(
+async def create_task(
     task: schemas.TaskCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -214,7 +258,13 @@ def create_task(
         if not crud.is_project_member(db, user_id=task.assigned_user_id, project_id=task.project_id):
             raise HTTPException(status_code=400, detail="Assignee must be a member of the project")
 
-    return crud.create_task(db=db, task=task, user_id=current_user.id)
+    created = crud.create_task(db=db, task=task, user_id=current_user.id)
+    await manager.broadcast({
+        "type": "TASK_CREATED",
+        "data": {"id": created.id, "project_id": created.project_id, "title": created.title}
+    })
+    await manager.broadcast({"type": "NOTIFICATION_TRIGGERED"})
+    return created
 
 
 @app.get("/tasks/", response_model=List[schemas.Task])
@@ -229,7 +279,7 @@ def read_tasks(
 
 
 @app.patch("/tasks/{task_id}", response_model=schemas.Task)
-def update_task(
+async def update_task(
     task_id: int,
     task_update: schemas.TaskUpdate,
     db: Session = Depends(get_db),
@@ -246,11 +296,17 @@ def update_task(
         if not crud.is_project_member(db, user_id=task_update.assigned_user_id, project_id=existing_task.project_id):
             raise HTTPException(status_code=400, detail="Assignee must be a member of the project")
 
-    return crud.update_task(db, task_id=task_id, task_update=task_update, user_id=current_user.id)
+    updated = crud.update_task(db, task_id=task_id, task_update=task_update, user_id=current_user.id)
+    await manager.broadcast({
+        "type": "TASK_UPDATED",
+        "data": {"id": updated.id, "project_id": updated.project_id, "status": updated.status}
+    })
+    await manager.broadcast({"type": "NOTIFICATION_TRIGGERED"})
+    return updated
 
 
 @app.delete("/tasks/{task_id}", response_model=schemas.Task)
-def delete_task(
+async def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -262,7 +318,16 @@ def delete_task(
     if not crud.is_project_member(db, user_id=current_user.id, project_id=existing_task.project_id):
         raise HTTPException(status_code=403, detail="Must be a project member to delete tasks")
 
-    return crud.delete_task(db, task_id=task_id)
+    project_id = existing_task.project_id
+    deleted = crud.delete_task(db, task_id=task_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    await manager.broadcast({
+        "type": "TASK_DELETED",
+        "data": {"id": task_id, "project_id": project_id}
+    })
+    return deleted
 
 
 # --- Task Activities (Audit Log) & Comments Routes ---
@@ -295,7 +360,7 @@ def read_task_comments(
 
 
 @app.post("/tasks/{task_id}/comments", response_model=schemas.TaskComment)
-def create_task_comment(
+async def create_task_comment(
     task_id: int,
     comment_in: schemas.TaskCommentCreate,
     db: Session = Depends(get_db),
@@ -308,7 +373,230 @@ def create_task_comment(
         raise HTTPException(status_code=403, detail="Must be a project member to comment on this task")
     if not comment_in.content.strip():
         raise HTTPException(status_code=400, detail="Comment content cannot be empty")
-    return crud.create_task_comment(db, task_id=task_id, user_id=current_user.id, content=comment_in.content.strip())
+    
+    comment = crud.create_task_comment(db, task_id=task_id, user_id=current_user.id, content=comment_in.content.strip())
+    await manager.broadcast({
+        "type": "COMMENT_CREATED",
+        "data": {"task_id": task_id, "comment_id": comment.id}
+    })
+    await manager.broadcast({"type": "NOTIFICATION_TRIGGERED"})
+    return comment
+
+
+# --- Subtasks Routes ---
+@app.get("/tasks/{task_id}/subtasks", response_model=List[schemas.Subtask])
+def get_task_subtasks(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    task = crud.get_task(db, task_id=task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to view subtasks")
+    return crud.get_subtasks(db, task_id=task_id)
+
+
+@app.post("/tasks/{task_id}/subtasks", response_model=schemas.Subtask)
+async def create_task_subtask(
+    task_id: int,
+    subtask_in: schemas.SubtaskCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+
+    # Note: The subtask title is validated to ensure it is not empty or just whitespace.
+):
+    task = crud.get_task(db, task_id=task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to add subtasks")
+    if not subtask_in.title.strip():
+        raise HTTPException(status_code=400, detail="Subtask title cannot be empty")
+    
+    subtask = crud.create_subtask(db, task_id=task_id, title=subtask_in.title.strip())
+    await manager.broadcast({
+        "type": "SUBTASK_UPDATED",
+        "data": {"task_id": task_id, "subtask_id": subtask.id}
+    })
+    return subtask
+
+
+@app.patch("/subtasks/{subtask_id}", response_model=schemas.Subtask)
+async def update_subtask(
+    subtask_id: int,
+    subtask_update: schemas.SubtaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    subtask = db.query(models.Subtask).filter(models.Subtask.id == subtask_id).first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+    task = crud.get_task(db, task_id=subtask.task_id)
+    if not task or not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to update subtasks")
+    
+    updated = crud.update_subtask(db, subtask_id=subtask_id, update_data=subtask_update)
+    await manager.broadcast({
+        "type": "SUBTASK_UPDATED",
+        "data": {"task_id": subtask.task_id, "subtask_id": subtask_id}
+    })
+    return updated
+
+
+@app.delete("/subtasks/{subtask_id}", response_model=schemas.Subtask)
+async def delete_subtask(
+    subtask_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    subtask = db.query(models.Subtask).filter(models.Subtask.id == subtask_id).first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+    task = crud.get_task(db, task_id=subtask.task_id)
+    if not task or not crud.is_project_member(db, user_id=current_user.id, project_id=task.project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to delete subtasks")
+    
+    task_id = subtask.task_id
+    deleted = crud.delete_subtask(db, subtask_id=subtask_id)
+    await manager.broadcast({
+        "type": "SUBTASK_UPDATED",
+        "data": {"task_id": task_id, "subtask_id": subtask_id}
+    })
+    return deleted
+
+
+# --- Notifications Routes ---
+@app.get("/notifications/", response_model=List[schemas.Notification])
+def get_notifications(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return crud.get_user_notifications(db, user_id=current_user.id, limit=limit)
+
+
+@app.patch("/notifications/{notification_id}/read", response_model=schemas.Notification)
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    notif = crud.mark_notification_read(db, notification_id=notification_id, user_id=current_user.id)
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return notif
+
+
+@app.post("/notifications/read-all")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    crud.mark_all_notifications_read(db, user_id=current_user.id)
+    return {"message": "All notifications marked as read"}
+
+
+@app.post("/notifications/test", response_model=schemas.Notification)
+async def create_test_notification(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    notif = crud.create_notification(
+        db,
+        user_id=current_user.id,
+        title="🔔 Test Alert Notification",
+        message="Your real-time notification system is connected and working perfectly!",
+        link="/tasks"
+    )
+    await manager.broadcast({"type": "NOTIFICATION_TRIGGERED"})
+    return notif
+
+
+# --- Export Project Report Routes ---
+@app.get("/projects/{project_id}/export/csv")
+def export_project_tasks_csv(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    project = crud.get_project(db, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not crud.is_project_member(db, user_id=current_user.id, project_id=project_id):
+        raise HTTPException(status_code=403, detail="Must be a project member to export project tasks")
+    
+    tasks = crud.get_tasks(db, user_id=current_user.id, project_id=project_id, limit=1000)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Project", "Task ID", "Task Title", "Description", "Status",
+        "Priority", "Due Date", "Assignee Email", "Subtasks Count", "Subtasks Completed"
+    ])
+    
+    for t in tasks:
+        assignee_email = t.assignee.email if t.assignee else ""
+        subtasks_total = len(t.subtasks) if t.subtasks else 0
+        subtasks_done = len([s for s in t.subtasks if s.completed]) if t.subtasks else 0
+        writer.writerow([
+            project.title,
+            t.id,
+            t.title,
+            t.description or "",
+            t.status,
+            t.priority or "Medium",
+            t.due_date or "",
+            assignee_email,
+            subtasks_total,
+            subtasks_done
+        ])
+    
+    csv_bytes = output.getvalue().encode('utf-8-sig')
+    filename = f"{project.title.replace(' ', '_')}_tasks.csv"
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.get("/tasks/export/csv")
+def export_all_tasks_csv(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    tasks = crud.get_tasks(db, user_id=current_user.id, limit=2000)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Project ID", "Task ID", "Task Title", "Description", "Status",
+        "Priority", "Due Date", "Assignee Email", "Subtasks Count", "Subtasks Completed"
+    ])
+    for t in tasks:
+        assignee_email = t.assignee.email if t.assignee else ""
+        subtasks_total = len(t.subtasks) if t.subtasks else 0
+        subtasks_done = len([s for s in t.subtasks if s.completed]) if t.subtasks else 0
+        writer.writerow([
+            t.project_id,
+            t.id,
+            t.title,
+            t.description or "",
+            t.status,
+            t.priority or "Medium",
+            t.due_date or "",
+            assignee_email,
+            subtasks_total,
+            subtasks_done
+        ])
+    
+    csv_bytes = output.getvalue().encode('utf-8-sig')
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="all_tasks_report.csv"'}
+    )
 
 
 # --- CSV Import & Bulk Update Endpoint ---
@@ -330,6 +618,8 @@ async def upload_csv_data(
             content = content_bytes.decode("latin-1")
             
         result = crud.import_csv_data(db, current_user=current_user, csv_content=content)
+        await manager.broadcast({"type": "CSV_IMPORTED"})
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process CSV file: {str(e)}")
+

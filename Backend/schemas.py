@@ -73,6 +73,46 @@ class TaskComment(TaskCommentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Subtask Schemas ---
+
+class SubtaskBase(BaseModel):
+    title: str
+    completed: Optional[bool] = False
+
+class SubtaskCreate(BaseModel):
+    title: str
+
+class SubtaskUpdate(BaseModel):
+    title: Optional[str] = None
+    completed: Optional[bool] = None
+
+class Subtask(SubtaskBase):
+    id: int
+    task_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Notification Schemas ---
+
+class NotificationBase(BaseModel):
+    title: str
+    message: str
+    link: Optional[str] = None
+    is_read: Optional[bool] = False
+
+class NotificationCreate(NotificationBase):
+    user_id: int
+
+class Notification(NotificationBase):
+    id: int
+    user_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Task Schemas ---
 
 class TaskBase(BaseModel):
@@ -98,8 +138,10 @@ class Task(TaskBase):
     id: int
     project_id: int
     assignee: Optional[User] = None
+    subtasks: List[Subtask] = []
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 # --- Project Schemas ---
