@@ -4,8 +4,7 @@ import {
   type Notification, 
   getNotifications, 
   markNotificationRead, 
-  markAllNotificationsRead,
-  sendTestNotification
+  markAllNotificationsRead
 } from '../api';
 import { useWebSocket } from '../context/WebSocketContext';
 import { formatTimeAgo } from './TaskDetailModal';
