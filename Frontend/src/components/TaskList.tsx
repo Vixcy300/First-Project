@@ -16,6 +16,14 @@ import KanbanBoard from './KanbanBoard';
 import CsvUploadModal from './CsvUploadModal';
 import { useToast } from '../context/ToastContext';
 import { useWebSocket } from '../context/WebSocketContext';
+import {
+  SearchIcon,
+  PlusIcon,
+  UploadIcon,
+  DownloadIcon,
+  ClockIcon,
+  TimelineIcon
+} from './Icons';
 
 // ─── Calendar View ───────────────────────────────────────────────────────────
 const CalendarView: React.FC<{ tasks: Task[]; onOpenDetails: (t: Task) => void }> = ({ tasks, onOpenDetails }) => {
@@ -46,7 +54,7 @@ const CalendarView: React.FC<{ tasks: Task[]; onOpenDetails: (t: Task) => void }
     Urgent: '#ef4444',
     High: '#f97316',
     Medium: '#3b82f6',
-    Low: '#22c55e',
+    Low: '#10b981',
   };
 
   const today = new Date();
@@ -57,15 +65,15 @@ const CalendarView: React.FC<{ tasks: Task[]; onOpenDetails: (t: Task) => void }
     <div className="card" style={{ padding: '1.5rem' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <button className="btn btn-secondary btn-sm" onClick={prevMonth}>← Prev</button>
-        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>📅 {monthName}</h3>
-        <button className="btn btn-secondary btn-sm" onClick={nextMonth}>Next →</button>
+        <button className="btn btn-secondary btn-sm" onClick={prevMonth}>&larr; Prev</button>
+        <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600 }}>{monthName}</h3>
+        <button className="btn btn-secondary btn-sm" onClick={nextMonth}>Next &rarr;</button>
       </div>
 
       {/* Day labels */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-soft)', padding: '4px 0' }}>{d}</div>
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-soft)', padding: '4px 0' }}>{d}</div>
         ))}
       </div>
 
@@ -82,29 +90,32 @@ const CalendarView: React.FC<{ tasks: Task[]; onOpenDetails: (t: Task) => void }
                 minHeight: '80px',
                 border: `1px solid var(--border)`,
                 borderRadius: '6px',
-                padding: '4px',
+                padding: '6px',
                 backgroundColor: isToday(day) ? 'var(--primary-soft)' : 'var(--surface)',
-                boxShadow: isToday(day) ? '0 0 0 2px var(--primary)' : undefined,
+                boxShadow: isToday(day) ? '0 0 0 1px var(--primary)' : undefined,
               }}
             >
-              <div style={{ fontSize: '0.8rem', fontWeight: isToday(day) ? 700 : 400, color: isToday(day) ? 'var(--primary)' : 'var(--text)', marginBottom: '2px' }}>{day}</div>
+              <div style={{ fontSize: '0.78rem', fontWeight: isToday(day) ? 700 : 500, color: isToday(day) ? 'var(--primary)' : 'var(--text)', marginBottom: '4px' }}>
+                {day}
+              </div>
               {dayTasks.slice(0, 3).map(t => (
                 <div
                   key={t.id}
                   onClick={() => onOpenDetails(t)}
                   title={t.title}
                   style={{
-                    fontSize: '0.68rem',
-                    backgroundColor: priorityColor[t.priority || 'Medium'] + '22',
+                    fontSize: '0.7rem',
+                    backgroundColor: priorityColor[t.priority || 'Medium'] + '18',
                     borderLeft: `3px solid ${priorityColor[t.priority || 'Medium']}`,
-                    borderRadius: '3px',
-                    padding: '1px 4px',
-                    marginBottom: '2px',
+                    borderRadius: '2px',
+                    padding: '2px 4px',
+                    marginBottom: '3px',
                     cursor: 'pointer',
                     overflow: 'hidden',
                     whiteSpace: 'nowrap',
                     textOverflow: 'ellipsis',
                     color: 'var(--text)',
+                    fontWeight: 500
                   }}
                 >
                   {t.title}
@@ -119,15 +130,15 @@ const CalendarView: React.FC<{ tasks: Task[]; onOpenDetails: (t: Task) => void }
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap', fontSize: '0.78rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--text-soft)' }}>
         {Object.entries(priorityColor).map(([p, c]) => (
           <span key={p} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: c, display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: c, display: 'inline-block' }} />
             {p}
           </span>
         ))}
-        <span style={{ marginLeft: 'auto', color: 'var(--text-soft)' }}>
-          {tasks.filter(t => t.due_date).length} tasks with deadlines
+        <span style={{ marginLeft: 'auto' }}>
+          {tasks.filter(t => t.due_date).length} scheduled tasks
         </span>
       </div>
     </div>
@@ -140,10 +151,12 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
   
   if (tasksWithDates.length === 0) {
     return (
-      <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
-        <h3>No Timeline Data</h3>
-        <p style={{ color: 'var(--text-soft)' }}>Set start dates and due dates on your tasks to see the Gantt timeline.</p>
+      <div className="card" style={{ padding: '3.5rem', textAlign: 'center' }}>
+        <div style={{ color: 'var(--text-soft)', marginBottom: '0.75rem' }}>
+          <TimelineIcon size={36} />
+        </div>
+        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.4rem' }}>No Timeline Schedules</h3>
+        <p style={{ color: 'var(--text-soft)', fontSize: '0.88rem' }}>Set start and due dates on tasks to visualize milestones on this roadmap.</p>
       </div>
     );
   }
@@ -171,7 +184,7 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
     Urgent: '#ef4444',
     High: '#f97316',
     Medium: '#3b82f6',
-    Low: '#22c55e',
+    Low: '#10b981',
   };
 
   const dateLabels: { label: string; pct: number }[] = [];
@@ -187,7 +200,7 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
 
   return (
     <div className="card" style={{ padding: '1.5rem', overflowX: 'auto' }}>
-      <h3 style={{ marginBottom: '1.25rem' }}>📊 Gantt Timeline</h3>
+      <h3 style={{ marginBottom: '1.25rem', fontSize: '1.15rem', fontWeight: 600 }}>Project Roadmap & Milestone Timeline</h3>
       
       {/* Date header */}
       <div style={{ display: 'flex', marginBottom: '0.5rem', marginLeft: '200px', position: 'relative', height: '20px' }}>
@@ -209,29 +222,27 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
           return (
             <div key={task.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
               {/* Task name */}
-              <div style={{ width: '200px', minWidth: '200px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={task.title}>
+              <div style={{ width: '200px', minWidth: '200px', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={task.title}>
                 {task.title}
               </div>
 
               {/* Bar track */}
-              <div style={{ flex: 1, position: 'relative', height: '28px', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'visible' }}>
-                {/* Today line */}
+              <div style={{ flex: 1, position: 'relative', height: '26px', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'visible' }}>
                 {todayPct > 0 && todayPct < 100 && (
                   <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: 2, backgroundColor: 'var(--danger)', zIndex: 2 }} title="Today" />
                 )}
-                {/* Gantt bar */}
                 <div
                   style={{
                     position: 'absolute',
                     left: `${left}%`,
                     width: `${width}%`,
                     height: '100%',
-                    backgroundColor: statusDone ? '#22c55e44' : color + '44',
-                    border: `2px solid ${statusDone ? '#22c55e' : color}`,
+                    backgroundColor: statusDone ? 'rgba(16, 185, 129, 0.2)' : color + '2a',
+                    border: `1px solid ${statusDone ? '#10b981' : color}`,
                     borderRadius: '4px',
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '0 6px',
+                    padding: '0 8px',
                     fontSize: '0.72rem',
                     fontWeight: 600,
                     color: 'var(--text)',
@@ -244,7 +255,7 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
                   }}
                   title={`${task.start_date || '?'} → ${task.due_date || '?'}`}
                 >
-                  {statusDone ? '✅ ' : ''}{task.status}
+                  {task.status}
                 </div>
               </div>
             </div>
@@ -252,12 +263,11 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
         })}
       </div>
 
-      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-soft)', alignItems: 'center' }}>
-        <span><span style={{ display: 'inline-block', width: 8, height: 8, backgroundColor: 'var(--danger)', marginRight: 4 }} />Today</span>
+      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem', fontSize: '0.72rem', color: 'var(--text-soft)', alignItems: 'center' }}>
+        <span><span style={{ display: 'inline-block', width: 8, height: 8, backgroundColor: 'var(--danger)', marginRight: 4, borderRadius: 1 }} />Today</span>
         {Object.entries(priorityColor).map(([p, c]) => (
-          <span key={p}><span style={{ display: 'inline-block', width: 8, height: 8, backgroundColor: c, marginRight: 4 }} />{p}</span>
+          <span key={p}><span style={{ display: 'inline-block', width: 8, height: 8, backgroundColor: c, marginRight: 4, borderRadius: '50%' }} />{p}</span>
         ))}
-        <span style={{ marginLeft: 'auto' }}>Set start_date + due_date on tasks to extend bars</span>
       </div>
     </div>
   );
@@ -284,6 +294,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
       setViewMode(initialView);
     }
   }, [initialView]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -291,7 +302,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<Task | null>(null);
   const [showCsvModal, setShowCsvModal] = useState(false);
 
-  // ── Filters ──
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -334,7 +345,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
         }
       } catch (err: any) {
         if (isMounted) {
-          const msg = err?.response?.data?.detail || 'Failed to fetch tasks. Is the backend running?';
+          const msg = err?.response?.data?.detail || 'Failed to fetch tasks.';
           setError(msg);
           toast.error(msg);
         }
@@ -396,7 +407,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      toast.success("Tasks exported to CSV!");
+      toast.success("Tasks exported to CSV");
     } catch {
       toast.error("Failed to export tasks to CSV");
     }
@@ -407,7 +418,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
       setError('');
       await createTask(data);
       setShowForm(false);
-      toast.success("Task created successfully!");
+      toast.success("Task created successfully");
       await refreshTasks();
     } catch (err: any) {
       const msg = err?.response?.data?.detail || 'Failed to create task.';
@@ -423,7 +434,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
         setError('');
         await updateTask(editingTaskId, data);
         setEditingTaskId(null);
-        toast.success("Task updated successfully!");
+        toast.success("Task updated successfully");
         await refreshTasks();
       } catch (err: any) {
         const msg = err?.response?.data?.detail || 'Failed to update task.';
@@ -437,7 +448,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
   const handleStatusChange = async (taskId: number, newStatus: string) => {
     try {
       await updateTask(taskId, { status: newStatus });
-      toast.success(`Moved to ${newStatus}`);
+      toast.success(`Status updated to ${newStatus}`);
       await refreshTasks();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Failed to update status");
@@ -450,7 +461,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
         setError('');
         await deleteTask(taskId);
         setTasks(prev => prev.filter(t => t.id !== taskId));
-        toast.success("Task deleted successfully!");
+        toast.success("Task deleted successfully");
         if (selectedTaskForModal?.id === taskId) {
           setSelectedTaskForModal(null);
         }
@@ -471,12 +482,10 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
     }
   };
 
-  // ── Derived: all tags from tasks ──
   const allTags = Array.from(new Set(
     tasks.flatMap(t => t.tags ? t.tags.split(',').map(s => s.trim()).filter(Boolean) : [])
   )).sort();
 
-  // ── Filtering & Sorting ──
   const priorityOrder: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
 
   const filteredTasks = tasks
@@ -509,132 +518,142 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
   return (
     <div>
       {/* ── Top Header ── */}
-      <div className="flex justify-between items-center" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="flex justify-between items-center" style={{ marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 className="page-title" style={{ margin: 0 }}>Tasks</h1>
-          <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-            Manage, organize, and visualize tasks across your workflow.
+          <h1 className="page-title" style={{ margin: 0, fontSize: '1.8rem' }}>Tasks</h1>
+          <p style={{ color: 'var(--text-soft)', fontSize: '0.88rem', marginTop: '0.2rem' }}>
+            Work items, sprint deliverables, and execution status.
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* Project Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
           <select
             className="form-control"
-            style={{ width: 'auto', minWidth: '170px', padding: '0.5rem 0.8rem', fontSize: '0.88rem' }}
+            style={{ width: 'auto', minWidth: '160px', padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value === '' ? '' : Number(e.target.value))}
           >
-            <option value="">📁 All Projects</option>
+            <option value="">All Projects</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
           </select>
 
           <button 
-            className="btn btn-secondary" 
+            className="btn btn-secondary btn-sm" 
             onClick={() => { setShowCsvModal(true); setError(''); }}
             title="Import tasks from CSV"
-          >📊 Upload CSV</button>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem' }}
+          >
+            <UploadIcon size={14} />
+            <span>Import CSV</span>
+          </button>
 
           <button 
-            className="btn btn-secondary" 
+            className="btn btn-secondary btn-sm" 
             onClick={handleExportTasks}
             title="Export tasks to CSV"
-          >📥 Export CSV</button>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem' }}
+          >
+            <DownloadIcon size={14} />
+            <span>Export CSV</span>
+          </button>
 
           {!showForm && (
             <button 
-              className="btn btn-primary" 
+              className="btn btn-primary btn-sm" 
               onClick={() => { setShowForm(true); setEditingTaskId(null); setError(''); }}
-            >+ New Task</button>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem' }}
+            >
+              <PlusIcon size={14} />
+              <span>New Task</span>
+            </button>
           )}
         </div>
       </div>
 
       {/* ── Toolbar: Search + Filters + View Toggles ── */}
-      <div className="card" style={{ padding: '0.875rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Search */}
-        <input
-          type="text"
-          className="form-control"
-          placeholder="🔍 Search tasks..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          style={{ minWidth: '200px', maxWidth: '260px', fontSize: '0.88rem' }}
-        />
+      <div className="card" style={{ padding: '0.75rem 1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <SearchIcon size={14} style={{ position: 'absolute', left: 10, color: 'var(--text-soft)', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ paddingLeft: '28px', minWidth: '200px', maxWidth: '260px', fontSize: '0.85rem' }}
+          />
+        </div>
 
-        {/* Tag Filter */}
         <select
           className="form-control"
-          style={{ width: 'auto', fontSize: '0.88rem' }}
+          style={{ width: 'auto', fontSize: '0.85rem' }}
           value={selectedTag}
           onChange={e => setSelectedTag(e.target.value)}
         >
-          <option value="">🏷️ All Tags</option>
+          <option value="">All Tags</option>
           {allTags.map(tag => <option key={tag} value={tag}>#{tag}</option>)}
         </select>
 
-        {/* Status Filter */}
         <select
           className="form-control"
-          style={{ width: 'auto', fontSize: '0.88rem' }}
+          style={{ width: 'auto', fontSize: '0.85rem' }}
           value={selectedStatus}
           onChange={e => setSelectedStatus(e.target.value)}
         >
-          <option value="">All Status</option>
+          <option value="">All Statuses</option>
           <option value="To Do">To Do</option>
           <option value="In Progress">In Progress</option>
           <option value="Done">Done</option>
         </select>
 
-        {/* Priority Filter */}
         <select
           className="form-control"
-          style={{ width: 'auto', fontSize: '0.88rem' }}
+          style={{ width: 'auto', fontSize: '0.85rem' }}
           value={selectedPriority}
           onChange={e => setSelectedPriority(e.target.value)}
         >
-          <option value="">All Priority</option>
-          <option value="Urgent">🔴 Urgent</option>
-          <option value="High">🟠 High</option>
-          <option value="Medium">🔵 Medium</option>
-          <option value="Low">🟢 Low</option>
+          <option value="">All Priorities</option>
+          <option value="Urgent">Urgent</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
         </select>
 
-        {/* Sort */}
         <select
           className="form-control"
-          style={{ width: 'auto', fontSize: '0.88rem' }}
+          style={{ width: 'auto', fontSize: '0.85rem' }}
           value={sortBy}
           onChange={e => setSortBy(e.target.value as any)}
         >
-          <option value="default">⇅ Sort: Default</option>
-          <option value="due_date">📅 By Due Date</option>
-          <option value="priority">⚡ By Priority</option>
+          <option value="default">Sort: Default</option>
+          <option value="due_date">Due Date</option>
+          <option value="priority">Priority</option>
         </select>
 
         {hasFilters && (
           <button
             className="btn btn-sm btn-secondary"
             onClick={() => { setSearchQuery(''); setSelectedTag(''); setSelectedStatus(''); setSelectedPriority(''); setSortBy('default'); }}
-          >✕ Clear Filters</button>
+            style={{ fontSize: '0.78rem' }}
+          >
+            Clear filters
+          </button>
         )}
 
-        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* View Toggles */}
+        {/* View Toggle Tabs */}
         <div className="view-toggle-group">
-          <button className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => handleViewModeChange('kanban')} title="Kanban Board">🗂️ Board</button>
-          <button className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => handleViewModeChange('list')} title="List View">📋 List</button>
-          <button className={`view-toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`} onClick={() => handleViewModeChange('calendar')} title="Calendar View">📅 Calendar</button>
-          <button className={`view-toggle-btn ${viewMode === 'gantt' ? 'active' : ''}`} onClick={() => handleViewModeChange('gantt')} title="Gantt / Timeline">📊 Timeline</button>
+          <button className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`} onClick={() => handleViewModeChange('kanban')}>Board</button>
+          <button className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => handleViewModeChange('list')}>List</button>
+          <button className={`view-toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`} onClick={() => handleViewModeChange('calendar')}>Calendar</button>
+          <button className={`view-toggle-btn ${viewMode === 'gantt' ? 'active' : ''}`} onClick={() => handleViewModeChange('gantt')}>Timeline</button>
         </div>
 
-        {/* Filter count badge */}
         {hasFilters && (
-          <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
-            {filteredTasks.length} / {tasks.length} tasks
+          <span style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600 }}>
+            {filteredTasks.length} / {tasks.length}
           </span>
         )}
       </div>
@@ -648,7 +667,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
         </div>
       )}
 
-      {/* ── Content ── */}
+      {/* Content Rendering */}
       {loading ? (
         <div className="loader" />
       ) : viewMode === 'calendar' ? (
@@ -660,8 +679,8 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
           {editingTask && (
             <div style={{ marginBottom: '2rem' }}>
               <div className="flex justify-between items-center" style={{ marginBottom: '0.75rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.15rem' }}>✏️ Edit Task: {editingTask.title}</h3>
-                <button className="btn btn-sm btn-secondary" onClick={() => setEditingTaskId(null)}>✕ Close Edit</button>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Edit Task: {editingTask.title}</h3>
+                <button className="btn btn-sm btn-secondary" onClick={() => setEditingTaskId(null)}>Close</button>
               </div>
               <TaskForm initialData={editingTask} onSubmit={handleUpdate} onCancel={() => setEditingTaskId(null)} />
             </div>
@@ -689,7 +708,7 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
                 ) : (
                   <>
                     <div className="task-form-header">
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{task.title}</h3>
+                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>{task.title}</h3>
                       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span className={`priority-badge priority-${priority.toLowerCase()}`}>{priority}</span>
                         <span className={`badge ${getStatusClass(task.status)}`}>{task.status}</span>
@@ -702,27 +721,26 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
                       </div>
                     )}
 
-                    {/* Tags */}
                     {taskTags.length > 0 && (
-                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
                         {taskTags.map(tag => (
-                          <span key={tag} className="task-tag" onClick={() => setSelectedTag(tag)} style={{ cursor: 'pointer' }}>#{tag}</span>
+                          <span key={tag} className="task-tag" onClick={() => setSelectedTag(tag)} style={{ cursor: 'pointer', fontSize: '0.72rem' }}>#{tag}</span>
                         ))}
                       </div>
                     )}
 
-                    {/* Time Tracking */}
                     {(task.estimated_hours || task.logged_hours) && (
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginTop: '0.5rem' }}>
-                        ⏱️ {task.logged_hours ?? 0}h logged / {task.estimated_hours ?? '?'}h est.
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <ClockIcon size={12} />
+                        <span>{task.logged_hours ?? 0}h logged / {task.estimated_hours ?? '-'}h est.</span>
                       </div>
                     )}
 
-                    <p style={{ margin: '0.75rem 0', color: 'var(--text-soft)', flex: '1 1 auto', fontSize: '0.92rem' }}>
-                      {task.description || <em>No description provided.</em>}
+                    <p style={{ margin: '0.6rem 0', color: 'var(--text-soft)', flex: '1 1 auto', fontSize: '0.88rem' }}>
+                      {task.description || <span style={{ fontStyle: 'italic', opacity: 0.7 }}>No description provided.</span>}
                     </p>
 
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.85rem', color: 'var(--text-soft)', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-soft)', marginBottom: '0.6rem' }}>
                       <span><strong>Project:</strong> #{task.project_id}</span>
                       <span>
                         <strong>Assignee:</strong>{' '}
@@ -730,11 +748,11 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.82rem' }}>
-                      <span style={{ color: 'var(--text-soft)', fontWeight: 600 }}>Status:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--text-soft)', fontWeight: 500 }}>Status:</span>
                       <select
                         className="form-control"
-                        style={{ padding: '0.2rem 0.5rem', width: 'auto', fontSize: '0.82rem', height: 'auto' }}
+                        style={{ padding: '0.2rem 0.5rem', width: 'auto', fontSize: '0.8rem', height: 'auto' }}
                         value={task.status}
                         onChange={(e) => handleStatusChange(task.id, e.target.value)}
                       >
@@ -744,15 +762,17 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
                       </select>
                     </div>
 
-                    <div className="task-card-actions" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                    <div className="task-card-actions" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.6rem', marginTop: 'auto' }}>
                       <button
                         className="btn btn-sm"
-                        style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', fontWeight: 600 }}
+                        style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', fontWeight: 500, fontSize: '0.78rem' }}
                         onClick={() => setSelectedTaskForModal(task)}
-                      >💬 Discussion & History</button>
-                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-sm btn-secondary" onClick={() => { setEditingTaskId(task.id); setError(''); }}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(task.id)}>Delete</button>
+                      >
+                        Details & Discussion
+                      </button>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-sm btn-secondary" style={{ fontSize: '0.75rem' }} onClick={() => { setEditingTaskId(task.id); setError(''); }}>Edit</button>
+                        <button className="btn btn-sm btn-danger" style={{ fontSize: '0.75rem' }} onClick={() => handleDelete(task.id)}>Delete</button>
                       </div>
                     </div>
                   </>
@@ -761,14 +781,13 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
             );
           })}
           {filteredTasks.length === 0 && !showForm && (
-            <p style={{ color: 'var(--text-soft)', gridColumn: '1 / -1' }}>
-              {hasFilters ? 'No tasks match your filters. Try clearing them.' : 'No tasks found. Create one above!'}
+            <p style={{ color: 'var(--text-soft)', gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>
+              {hasFilters ? 'No tasks match current filter criteria.' : 'No tasks found.'}
             </p>
           )}
         </div>
       )}
 
-      {/* Task Detail Modal */}
       {selectedTaskForModal && (
         <TaskDetailModal
           task={selectedTaskForModal}
@@ -776,7 +795,6 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
         />
       )}
 
-      {/* CSV Import Modal */}
       {showCsvModal && (
         <CsvUploadModal
           onClose={() => setShowCsvModal(false)}

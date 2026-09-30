@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { type Task } from '../api';
 import { getDueDateBadge } from './TaskDetailModal';
+import { EditIcon, TrashIcon, ClockIcon } from './Icons';
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -11,9 +12,9 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS = [
-  { id: 'To Do', label: 'To Do', color: 'var(--text-soft)', icon: '📝' },
-  { id: 'In Progress', label: 'In Progress', color: 'var(--primary)', icon: '⚡' },
-  { id: 'Done', label: 'Done', color: 'var(--success)', icon: '✅' },
+  { id: 'To Do', label: 'To Do', dotColor: '#94a3b8' },
+  { id: 'In Progress', label: 'In Progress', dotColor: '#3b82f6' },
+  { id: 'Done', label: 'Done', dotColor: '#10b981' },
 ];
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({
@@ -75,10 +76,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             {/* Column Header */}
             <div className="kanban-column-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>{col.icon}</span>
-                <span className="kanban-column-title">{col.label}</span>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: col.dotColor, display: 'inline-block' }} />
+                <span className="kanban-column-title" style={{ fontSize: '0.88rem', fontWeight: 600 }}>{col.label}</span>
               </div>
-              <span className="kanban-task-count">{colTasks.length}</span>
+              <span className="kanban-task-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{colTasks.length}</span>
             </div>
 
             {/* Column Task Cards */}
@@ -111,28 +112,49 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     <h4 
                       className="kanban-card-title" 
                       onClick={() => onOpenDetails(task)}
-                      title="Click to view discussion & activity history"
+                      title="View details & activity"
+                      style={{ fontSize: '0.92rem', fontWeight: 600 }}
                     >
                       {task.title}
                     </h4>
 
                     {/* Description preview */}
                     {task.description && (
-                      <p className="kanban-card-desc">
+                      <p className="kanban-card-desc" style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
                         {task.description.length > 80
                           ? `${task.description.substring(0, 80)}...`
                           : task.description}
                       </p>
                     )}
 
-                    {/* Subtasks Checklist Progress (if any) */}
+                    {/* Tags */}
+                    {task.tags && (
+                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+                        {task.tags.split(',').map(s => s.trim()).filter(Boolean).map(tag => (
+                          <span key={tag} className="task-tag" style={{ fontSize: '0.7rem' }}>#{tag}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Time Tracking */}
+                    {(task.estimated_hours || task.logged_hours) && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <ClockIcon size={12} />
+                        <span>{task.logged_hours ?? 0}h / {task.estimated_hours ?? '-'}h est.</span>
+                        {task.estimated_hours && task.logged_hours && task.logged_hours > task.estimated_hours && (
+                          <span style={{ color: 'var(--danger)', marginLeft: '0.2rem', fontWeight: 600 }}>Over budget</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Subtasks Checklist Progress */}
                     {task.subtasks && task.subtasks.length > 0 && (() => {
                       const completedCount = task.subtasks.filter(s => s.completed).length;
                       const percent = Math.round((completedCount / task.subtasks.length) * 100);
                       return (
-                        <div className="kanban-card-subtasks" style={{ margin: '0.5rem 0' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-soft)', marginBottom: '0.2rem' }}>
-                            <span>☑ Subtasks</span>
+                        <div className="kanban-card-subtasks" style={{ margin: '0.4rem 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-soft)', marginBottom: '0.2rem' }}>
+                            <span>Subtasks</span>
                             <span>{completedCount}/{task.subtasks.length} ({percent}%)</span>
                           </div>
                           <div className="progress-bar-track" style={{ height: '4px' }}>
@@ -149,32 +171,35 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     })()}
 
                     {/* Footer Info */}
-                    <div className="kanban-card-footer">
-                      <span className="kanban-assignee">
-                        👤 {task.assignee ? task.assignee.name : (task.assigned_user_id ? `User #${task.assigned_user_id}` : 'Unassigned')}
+                    <div className="kanban-card-footer" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.4rem', marginTop: '0.4rem' }}>
+                      <span className="kanban-assignee" style={{ fontSize: '0.75rem', color: 'var(--text-soft)' }}>
+                        {task.assignee ? task.assignee.name : (task.assigned_user_id ? `User #${task.assigned_user_id}` : 'Unassigned')}
                       </span>
                       
                       <div className="kanban-card-actions">
                         <button
                           className="btn-icon"
                           onClick={() => onOpenDetails(task)}
-                          title="Open Subtasks, Comments & History"
+                          title="Open Discussion & History"
+                          style={{ fontSize: '0.72rem' }}
                         >
-                          💬
+                          Details
                         </button>
                         <button
                           className="btn-icon"
                           onClick={() => onEditTask(task)}
                           title="Edit Task"
+                          style={{ padding: '2px 4px' }}
                         >
-                          ✏️
+                          <EditIcon size={13} />
                         </button>
                         <button
                           className="btn-icon btn-icon-danger"
                           onClick={() => onDeleteTask(task.id)}
                           title="Delete Task"
+                          style={{ padding: '2px 4px' }}
                         >
-                          🗑️
+                          <TrashIcon size={13} />
                         </button>
                       </div>
                     </div>
@@ -183,8 +208,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
               })}
 
               {colTasks.length === 0 && (
-                <div className="kanban-empty-dropzone">
-                  ⬇️ Drop tasks here
+                <div className="kanban-empty-dropzone" style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+                  Drop tasks here
                 </div>
               )}
             </div>
@@ -196,4 +221,3 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 };
 
 export default KanbanBoard;
-
