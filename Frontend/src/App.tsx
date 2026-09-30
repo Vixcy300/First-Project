@@ -26,6 +26,8 @@ const App: React.FC = () => {
             <Route index element={<Dashboard />} />
             <Route path="projects" element={<ProjectList />} />
             <Route path="tasks" element={<TaskList />} />
+            <Route path="calendar" element={<TaskList initialView="calendar" />} />
+            <Route path="timeline" element={<TaskList initialView="gantt" />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

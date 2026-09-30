@@ -520,9 +520,15 @@ const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
       {/* ── Top Header ── */}
       <div className="flex justify-between items-center" style={{ marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 className="page-title" style={{ margin: 0, fontSize: '1.8rem' }}>Tasks</h1>
+          <h1 className="page-title" style={{ margin: 0, fontSize: '1.8rem' }}>
+            {viewMode === 'calendar' ? 'Calendar' : viewMode === 'gantt' ? 'Timeline' : 'Tasks'}
+          </h1>
           <p style={{ color: 'var(--text-soft)', fontSize: '0.88rem', marginTop: '0.2rem' }}>
-            Work items, sprint deliverables, and execution status.
+            {viewMode === 'calendar'
+              ? 'Milestone schedule, task deadlines, and delivery calendar.'
+              : viewMode === 'gantt'
+              ? 'Project roadmap, milestone duration, and scheduling timeline.'
+              : 'Work items, sprint deliverables, and execution status.'}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
