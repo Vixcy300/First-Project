@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { type User, getCurrentUser, logoutUser, sendTestNotification } from '../api';
+import { type User, getCurrentUser, logoutUser } from '../api';
 import NotificationCenter from './NotificationCenter';
 import { useWebSocket } from '../context/WebSocketContext';
-import { useToast } from '../context/ToastContext';
 import {
   DashboardIcon,
   ProjectIcon,
@@ -11,8 +10,7 @@ import {
   CalendarIcon,
   TimelineIcon,
   SunIcon,
-  MoonIcon,
-  BellIcon
+  MoonIcon
 } from './Icons';
 
 const Layout: React.FC = () => {
@@ -20,7 +18,6 @@ const Layout: React.FC = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { isConnected } = useWebSocket();
-  const { toast } = useToast();
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
@@ -45,15 +42,6 @@ const Layout: React.FC = () => {
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
-  };
-
-  const handleTestAlert = async () => {
-    try {
-      await sendTestNotification();
-      toast.success('Test notification dispatched');
-    } catch {
-      toast.error('Failed to dispatch test notification');
-    }
   };
 
   const navItems = [
@@ -102,7 +90,7 @@ const Layout: React.FC = () => {
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
           {currentUser && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.4rem 0.5rem' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.85rem' }}>
+              <div style={{ width: 34, height: 34, minWidth: 34, minHeight: 34, flexShrink: 0, borderRadius: '50%', backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.85rem' }}>
                 {currentUser.name.charAt(0).toUpperCase()}
               </div>
               <div style={{ overflow: 'hidden', lineHeight: 1.2 }}>
@@ -144,17 +132,6 @@ const Layout: React.FC = () => {
             >
               {theme === 'light' ? <MoonIcon size={15} /> : <SunIcon size={15} />}
               <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
-            </button>
-
-            {/* Test Alert Button */}
-            <button
-              onClick={handleTestAlert}
-              className="btn btn-secondary btn-sm"
-              title="Dispatch test notification"
-              style={{ padding: '0.35rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
-            >
-              <BellIcon size={15} />
-              <span>Test Alert</span>
             </button>
 
             <NotificationCenter />

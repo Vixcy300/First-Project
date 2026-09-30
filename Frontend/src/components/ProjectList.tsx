@@ -1083,13 +1083,13 @@ const ProjectList: React.FC = () => {
           <div 
             className="modal-box" 
             onClick={e => e.stopPropagation()} 
-            style={{ maxWidth: '880px', width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+            style={{ maxWidth: '880px', width: '95vw', maxHeight: '90vh' }}
           >
             {/* Modal Header */}
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', background: 'var(--surface-alt)' }}>
+            <div className="modal-header" style={{ background: 'var(--surface-alt)' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <ProjectIcon size={18} />
                   </div>
                   <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: 'var(--text)' }}>
@@ -1118,8 +1118,9 @@ const ProjectList: React.FC = () => {
                   <span>Export CSV</span>
                 </button>
                 <button
+                  className="modal-close-btn"
                   onClick={() => setSelectedProjectForDetail(null)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-soft)', cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
+                  title="Close Workspace"
                 >
                   &times;
                 </button>
@@ -1127,7 +1128,7 @@ const ProjectList: React.FC = () => {
             </div>
 
             {/* Modal Body: Scrollable */}
-            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {/* Executive Overview KPI Strip */}
               {(() => {
                 const pTasks = selectedProjectForDetail.tasks || [];
@@ -1377,7 +1378,7 @@ const ProjectList: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem' }}>
                   {/* Owner */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.5rem 0.75rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.78rem' }}>
+                    <div style={{ width: 30, height: 30, minWidth: 30, minHeight: 30, flexShrink: 0, borderRadius: '50%', backgroundColor: 'var(--primary-soft)', color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.78rem' }}>
                       {selectedProjectForDetail.owner ? selectedProjectForDetail.owner.name.charAt(0).toUpperCase() : 'L'}
                     </div>
                     <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -1391,7 +1392,7 @@ const ProjectList: React.FC = () => {
                   {/* Members */}
                   {selectedProjectForDetail.members?.filter(m => m.user_id !== selectedProjectForDetail.owner_id).map(m => (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.5rem 0.75rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--surface-hover)', color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.78rem' }}>
+                      <div style={{ width: 30, height: 30, minWidth: 30, minHeight: 30, flexShrink: 0, borderRadius: '50%', backgroundColor: 'var(--surface-hover)', color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.78rem' }}>
                         {m.user ? m.user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -1416,7 +1417,7 @@ const ProjectList: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '0.85rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-alt)' }}>
+            <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
               <Link
                 to="/tasks"
                 className="btn btn-secondary btn-sm"
@@ -1441,48 +1442,60 @@ const ProjectList: React.FC = () => {
       {/* ── Advanced "+ New Initiative" Modal Popup ── */}
       {showCreateModal && (
         <div className="modal-backdrop" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
-            <div className="flex justify-between items-center" style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ProjectIcon size={16} />
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ProjectIcon size={18} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>Create New Initiative</h3>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)' }}>Create New Initiative</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+                    Set up project milestones, deliverables, and team ownership.
+                  </p>
+                </div>
               </div>
               <button 
                 onClick={() => setShowCreateModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.3rem', color: 'var(--text-soft)', cursor: 'pointer', lineHeight: 1 }}
+                className="modal-close-btn"
+                title="Close"
               >
                 &times;
               </button>
             </div>
 
-            <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Initiative Name *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. Q4 Cloud Infrastructure Migration"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  required
-                  autoFocus
-                />
+            <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', margin: 0 }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', display: 'block', marginBottom: '6px' }}>
+                    Initiative Name <span style={{ color: 'var(--danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Q4 Cloud Infrastructure Migration"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', display: 'block', marginBottom: '6px' }}>
+                    Business Objectives & Scope
+                  </label>
+                  <textarea
+                    className="form-control"
+                    placeholder="State project deliverables, milestones, resource constraints, or target outcomes..."
+                    rows={4}
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Business Objectives & Scope</label>
-                <textarea
-                  className="form-control"
-                  placeholder="State project deliverables, milestones, resource constraints, or target outcomes..."
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+              <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
                   Cancel
                 </button>
@@ -1498,40 +1511,57 @@ const ProjectList: React.FC = () => {
       {/* ── Edit Project Modal Popup ── */}
       {editingProject && (
         <div className="modal-backdrop" onClick={() => setEditingProject(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
-            <div className="flex justify-between items-center" style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>Edit Initiative Details</h3>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <EditIcon size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)' }}>Edit Initiative Details</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+                    Update project scope and deliverables.
+                  </p>
+                </div>
+              </div>
               <button 
                 onClick={() => setEditingProject(null)}
-                style={{ background: 'none', border: 'none', fontSize: '1.3rem', color: 'var(--text-soft)', cursor: 'pointer', lineHeight: 1 }}
+                className="modal-close-btn"
+                title="Close"
               >
                 &times;
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Initiative Name *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  required
-                />
+            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', margin: 0 }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', display: 'block', marginBottom: '6px' }}>
+                    Initiative Name <span style={{ color: 'var(--danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem', display: 'block', marginBottom: '6px' }}>
+                    Scope & Description
+                  </label>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Scope & Description</label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+              <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingProject(null)}>
                   Cancel
                 </button>
