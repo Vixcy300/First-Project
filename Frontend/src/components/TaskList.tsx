@@ -264,15 +264,26 @@ const GanttView: React.FC<{ tasks: Task[] }> = ({ tasks }) => {
 };
 
 // ─── Main TaskList Component ─────────────────────────────────────────────────
-const TaskList: React.FC = () => {
+interface TaskListProps {
+  initialView?: 'kanban' | 'list' | 'calendar' | 'gantt';
+}
+
+const TaskList: React.FC<TaskListProps> = ({ initialView }) => {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'calendar' | 'gantt'>(() => {
+    if (initialView) return initialView;
     const saved = localStorage.getItem('task_view_mode');
     return (saved as any) || 'kanban';
   });
+
+  useEffect(() => {
+    if (initialView) {
+      setViewMode(initialView);
+    }
+  }, [initialView]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);

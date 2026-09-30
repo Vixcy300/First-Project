@@ -181,6 +181,26 @@ def read_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
+@app.patch("/projects/{project_id}", response_model=schemas.Project)
+async def update_project_endpoint(
+    project_id: int,
+    project_update: schemas.ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    project = crud.get_project(db, project_id=project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not crud.is_project_owner(db, user_id=current_user.id, project_id=project_id):
+        raise HTTPException(status_code=403, detail="Only the project owner can update this project")
+    
+    updated = crud.update_project(db, project_id=project_id, project_update=project_update)
+    await manager.broadcast({
+        "type": "PROJECT_UPDATED",
+        "data": {"project_id": project_id}
+    })
+    return updated
+
 @app.delete("/projects/{project_id}")
 def delete_project(
     project_id: int,

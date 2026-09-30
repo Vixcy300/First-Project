@@ -53,13 +53,19 @@ const Layout: React.FC = () => {
 
         <nav className="flex flex-col gap-2">
           <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
-            Dashboard
+            📊 Dashboard
           </Link>
           <Link to="/projects" className={`nav-link ${location.pathname.startsWith('/projects') ? 'active' : ''}`}>
-            Projects
+            📁 Projects
           </Link>
           <Link to="/tasks" className={`nav-link ${location.pathname.startsWith('/tasks') ? 'active' : ''}`}>
-            Tasks
+            ✅ Tasks
+          </Link>
+          <Link to="/calendar" className={`nav-link ${location.pathname.startsWith('/calendar') ? 'active' : ''}`}>
+            📅 Calendar
+          </Link>
+          <Link to="/timeline" className={`nav-link ${location.pathname.startsWith('/timeline') ? 'active' : ''}`}>
+            📊 Timeline
           </Link>
         </nav>
 
